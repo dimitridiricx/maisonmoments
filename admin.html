@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maison Moments — Beheer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<style>
+  :root{
+    --cream:#FBF6EC; --cream-deep:#F4EBDC; --espresso:#3A2E27;
+    --tan:#B98D5D; --sage:#8A9A6E; --coral:#E76F51; --line:rgba(58,46,39,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--cream-deep);color:var(--espresso);font-family:'Jost',sans-serif;font-size:15px;line-height:1.55;}
+  h1,h2,h3{font-family:'Fraunces',serif;margin:0;font-weight:500;}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 28px 90px;}
+  header.top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:8px;}
+  header.top h1{font-size:26px;}
+  .eyebrow{font-size:12.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--tan);font-weight:500;margin-bottom:6px;}
+  .notice{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 20px;font-size:13.5px;color:#5b4c40;margin:22px 0 34px;}
+  .notice b{color:var(--espresso);}
+  .panel{background:#fff;border-radius:20px;padding:26px 26px 30px;margin-bottom:26px;box-shadow:0 10px 24px -18px rgba(58,46,39,0.3);}
+  .panel h2{font-size:19px;margin-bottom:4px;}
+  .panel .sub{font-size:13.5px;color:#6b5c4f;margin-bottom:20px;}
+  .theme-edit{border:1px solid var(--line);border-radius:16px;padding:18px 18px 20px;margin-bottom:16px;display:grid;grid-template-columns:120px 1fr;gap:18px;}
+  .theme-preview{height:104px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:30px;}
+  .theme-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;}
+  .theme-fields .full{grid-column:1 / -1;}
+  label{display:block;font-size:12px;color:#7a6a5c;margin-bottom:4px;letter-spacing:0.02em;}
+  input[type=text], input[type=number], input[type=email], input[type=password], textarea{
+    width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;
+    font-family:'Jost',sans-serif;font-size:14px;background:var(--cream);color:var(--espresso);
+  }
+  textarea{resize:vertical;min-height:44px;}
+  input[type=color]{width:44px;height:32px;border:1px solid var(--line);border-radius:7px;padding:2px;background:var(--cream);}
+  .color-row{display:flex;gap:14px;align-items:center;}
+  .color-row .cg{display:flex;flex-direction:column;gap:4px;}
+  .row-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px;}
+  .btn{border:none;cursor:pointer;font-family:'Jost',sans-serif;font-weight:500;border-radius:999px;padding:10px 18px;font-size:13.5px;}
+  .btn-coral{background:var(--coral);color:#fff;}
+  .btn-outline{background:none;border:1.5px solid var(--espresso);color:var(--espresso);}
+  .btn-ghost{background:var(--cream-deep);color:#8a4b3a;}
+  .btn-sm{padding:7px 14px;font-size:12.5px;}
+  .btn[disabled]{opacity:0.5;cursor:default;}
+  .addon-row{display:grid;grid-template-columns:1fr 140px auto auto;gap:10px;align-items:end;margin-bottom:10px;}
+  .price-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .status{font-size:13px;color:var(--sage);}
+  .status.err{color:#c0533c;}
+  /* login */
+  .login-box{max-width:360px;margin:80px auto;background:#fff;padding:34px 30px;border-radius:20px;box-shadow:0 14px 30px -18px rgba(58,46,39,0.3);}
+  .login-box h1{font-size:22px;margin-bottom:6px;}
+  .login-box .sub{font-size:13.5px;color:#6b5c4f;margin-bottom:22px;}
+  .login-box label{margin-top:12px;}
+  .login-box button{width:100%;margin-top:20px;}
+  .login-err{color:#c0533c;font-size:13px;margin-top:12px;}
+  /* quote requests */
+  .qr-item{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;font-size:14px;}
+  .qr-item .qr-top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-family:'Fraunces',serif;font-size:16px;margin-bottom:4px;}
+  .qr-item .qr-meta{font-size:13px;color:#7a6a5c;margin-bottom:6px;}
+  .qr-item .qr-msg{font-size:13.5px;color:#5b4c40;}
+  .empty{font-size:13.5px;color:#8a7a6c;}
+  #adminArea{display:none;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-box" id="loginBox">
+  <div class="eyebrow">Maison Moments</div>
+  <h1>Inloggen</h1>
+  <div class="sub">Alleen voor de beheerder. Maak je account aan via Supabase → Authentication → Users.</div>
+  <label for="loginEmail">E-mail</label>
+  <input type="email" id="loginEmail" placeholder="jij@maisonmoments.nl">
+  <label for="loginPassword">Wachtwoord</label>
+  <input type="password" id="loginPassword">
+  <button class="btn btn-coral" id="loginBtn">Inloggen</button>
+  <div class="login-err" id="loginErr"></div>
+</div>
+
+<!-- ADMIN -->
+<div class="wrap" id="adminArea">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Maison Moments — beheer</div>
+      <h1>Thema's, extra's, prijzen &amp; aanvragen</h1>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a href="index.html" class="btn btn-outline btn-sm">← Naar de website</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn">Uitloggen</button>
+    </div>
+  </header>
+
+  <div class="notice">
+    Alle wijzigingen hieronder worden direct opgeslagen in de database en zijn meteen live op de website —
+    er hoeft niets geüpload te worden.
+  </div>
+
+  <!-- THEMES -->
+  <div class="panel">
+    <h2>Thema's</h2>
+    <div class="sub">Wijzigingen per thema worden pas opgeslagen als je op "Opslaan" bij dat thema klikt.</div>
+    <div id="themeList"></div>
+    <button class="btn btn-outline btn-sm" id="addTheme">+ Thema toevoegen</button>
+  </div>
+
+  <!-- ADD-ONS -->
+  <div class="panel">
+    <h2>Extra's / add-ons</h2>
+    <div class="sub">Losse toevoegingen die klanten aan een thema kunnen laten toevoegen.</div>
+    <div id="addonList"></div>
+    <button class="btn btn-outline btn-sm" id="addAddon">+ Extra toevoegen</button>
+  </div>
+
+  <!-- PRICING -->
+  <div class="panel">
+    <h2>Gasten- &amp; verhuurprijzen</h2>
+    <div class="sub">Deze regels verschijnen als toelichting onder de thema's op de site.</div>
+    <div class="price-grid">
+      <div><label>Aantal gasten inbegrepen</label><input type="number" id="guestIncluded" min="0"></div>
+      <div><label>Prijs per extra gast (€)</label><input type="number" id="guestExtraPrice" min="0" step="0.5"></div>
+      <div><label>Aantal dagen inbegrepen</label><input type="number" id="daysIncluded" min="0"></div>
+      <div><label>Prijs per extra dag (€)</label><input type="number" id="dayExtraPrice" min="0" step="0.5"></div>
+    </div>
+    <div class="row-actions">
+      <span class="status" id="pricingStatus"></span>
+      <button class="btn btn-coral btn-sm" id="savePricing">Prijzen opslaan</button>
+    </div>
+  </div>
+
+  <!-- QUOTE REQUESTS -->
+  <div class="panel">
+    <h2>Binnengekomen aanvragen</h2>
+    <div class="sub">Verstuurd via het offerteformulier op de website.</div>
+    <div id="qrList"><div class="empty">Laden…</div></div>
+    <button class="btn btn-outline btn-sm" id="refreshQr">Vernieuwen</button>
+  </div>
+</div>
+
+<script>
+  if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+    document.getElementById('loginErr').textContent = 'Supabase is nog niet geconfigureerd — vul supabase-config.js in.';
+  }
+
+  const loginBox = document.getElementById('loginBox');
+  const adminArea = document.getElementById('adminArea');
+  let themes = [], addOns = [];
+  let uidCounter = 100;
+  const newId = (p) => `${p}${Date.now()}${uidCounter++}`;
+
+  async function checkSession(){
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) showAdmin(); else showLogin();
+  }
+
+  function showLogin(){ loginBox.style.display = 'block'; adminArea.style.display = 'none'; }
+  function showAdmin(){ loginBox.style.display = 'none'; adminArea.style.display = 'block'; loadAll(); }
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errBox = document.getElementById('loginErr');
+    errBox.textContent = '';
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) errBox.textContent = 'Inloggen mislukt: ' + error.message;
+    else showAdmin();
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    showLogin();
+  });
+
+  async function loadAll(){
+    const [{data: t}, {data: a}, {data: p}] = await Promise.all([
+      supabaseClient.from('themes').select('*').order('sort_order', {ascending:true}),
+      supabaseClient.from('add_ons').select('*'),
+      supabaseClient.from('pricing_settings').select('*').eq('id',1).maybeSingle()
+    ]);
+    themes = t || [];
+    addOns = a || [];
+    renderThemes();
+    renderAddons();
+    if (p) {
+      document.getElementById('guestIncluded').value = p.guests_included;
+      document.getElementById('guestExtraPrice').value = p.guest_extra_price;
+      document.getElementById('daysIncluded').value = p.days_included;
+      document.getElementById('dayExtraPrice').value = p.day_extra_price;
+    }
+    loadQuoteRequests();
+  }
+
+  function renderThemes(){
+    const list = document.getElementById('themeList');
+    list.innerHTML = '';
+    themes.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'theme-edit';
+      row.innerHTML = `
+        <div class="theme-preview" style="background:linear-gradient(140deg, ${t.color_from}, ${t.color_to});">${t.emoji || '🎈'}</div>
+        <div>
+          <div class="theme-fields">
+            <div><label>Naam</label><input type="text" data-f="name" value="${t.name}"></div>
+            <div><label>Categorie-label</label><input type="text" data-f="tag" value="${t.tag}"></div>
+            <div><label>Emoji</label><input type="text" data-f="emoji" value="${t.emoji}"></div>
+            <div><label>Prijs (€, vanaf)</label><input type="number" data-f="price" value="${t.price}" min="0" step="1"></div>
+            <div class="full"><label>Beschrijving</label><textarea data-f="description">${t.description}</textarea></div>
+            <div class="full color-row">
+              <div class="cg"><label>Kleur 1</label><input type="color" data-f="color_from" value="${t.color_from}"></div>
+              <div class="cg"><label>Kleur 2</label><input type="color" data-f="color_to" value="${t.color_to}"></div>
+              <div class="cg"><label>Label-achtergrond</label><input type="color" data-f="tag_bg" value="${t.tag_bg}"></div>
+              <div class="cg"><label>Label-tekst</label><input type="color" data-f="tag_text" value="${t.tag_text}"></div>
+            </div>
+          </div>
+          <div class="row-actions">
+            <span class="status" data-status></span>
+            <button class="btn btn-ghost btn-sm" data-remove>Verwijderen</button>
+            <button class="btn btn-coral btn-sm" data-save>Opslaan</button>
+          </div>
+        </div>
+      `;
+      row.querySelectorAll('[data-f]').forEach(input => {
+        input.addEventListener('input', () => {
+          themes[i][input.dataset.f] = (input.dataset.f === 'price') ? Number(input.value) : input.value;
+          row.querySelector('.theme-preview').style.background = `linear-gradient(140deg, ${themes[i].color_from}, ${themes[i].color_to})`;
+          row.querySelector('.theme-preview').textContent = themes[i].emoji || '🎈';
+        });
+      });
+      row.querySelector('[data-save]').addEventListener('click', async () => {
+        const statusEl = row.querySelector('[data-status]');
+        statusEl.textContent = 'Opslaan…'; statusEl.className = 'status';
+        const { error } = await supabaseClient.from('themes').upsert({ ...themes[i], sort_order: i });
+        statusEl.textContent = error ? 'Mislukt' : 'Opgeslagen ✓';
+        statusEl.className = error ? 'status err' : 'status';
+      });
+      row.querySelector('[data-remove]').addEventListener('click', async () => {
+        if (!confirm(`"${themes[i].name}" verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+        await supabaseClient.from('themes').delete().eq('id', themes[i].id);
+        themes.splice(i, 1);
+        renderThemes();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function renderAddons(){
+    const list = document.getElementById('addonList');
+    list.innerHTML = '';
+    addOns.forEach((a, i) => {
+      const row = document.createElement('div');
+      row.className = 'addon-row';
+      row.innerHTML = `
+        <div><label>Naam</label><input type="text" data-f="name" value="${a.name}"></div>
+        <div><label>Prijs (€)</label><input type="number" data-f="price" value="${a.price}" min="0" step="1"></div>
+        <button class="btn btn-coral btn-sm" data-save>Opslaan</button>
+        <button class="btn btn-ghost btn-sm" data-remove>✕</button>
+      `;
+      row.querySelectorAll('[data-f]').forEach(input => {
+        input.addEventListener('input', () => {
+          addOns[i][input.dataset.f] = (input.dataset.f === 'price') ? Number(input.value) : input.value;
+        });
+      });
+      row.querySelector('[data-save]').addEventListener('click', async () => {
+        await supabaseClient.from('add_ons').upsert(addOns[i]);
+      });
+      row.querySelector('[data-remove]').addEventListener('click', async () => {
+        await supabaseClient.from('add_ons').delete().eq('id', addOns[i].id);
+        addOns.splice(i, 1);
+        renderAddons();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById('addTheme').addEventListener('click', () => {
+    themes.push({id:newId('t'), tag:"Verjaardag", emoji:"🎈", name:"Nieuw thema", description:"Korte omschrijving van dit thema.", price:79, color_from:"#E9DCC9", color_to:"#D9BD97", tag_bg:"#F1E7D6", tag_text:"#8A6B3F", sort_order:themes.length});
+    renderThemes();
+  });
+
+  document.getElementById('addAddon').addEventListener('click', () => {
+    addOns.push({id:newId('a'), name:"Nieuwe extra", price:20});
+    renderAddons();
+  });
+
+  document.getElementById('savePricing').addEventListener('click', async () => {
+    const statusEl = document.getElementById('pricingStatus');
+    statusEl.textContent = 'Opslaan…'; statusEl.className = 'status';
+    const { error } = await supabaseClient.from('pricing_settings').upsert({
+      id: 1,
+      guests_included: Number(document.getElementById('guestIncluded').value),
+      guest_extra_price: Number(document.getElementById('guestExtraPrice').value),
+      days_included: Number(document.getElementById('daysIncluded').value),
+      day_extra_price: Number(document.getElementById('dayExtraPrice').value)
+    });
+    statusEl.textContent = error ? 'Mislukt' : 'Opgeslagen ✓';
+    statusEl.className = error ? 'status err' : 'status';
+  });
+
+  async function loadQuoteRequests(){
+    const list = document.getElementById('qrList');
+    const { data, error } = await supabaseClient.from('quote_requests').select('*').order('created_at', {ascending:false});
+    if (error) { list.innerHTML = '<div class="empty">Kon aanvragen niet laden.</div>'; return; }
+    if (!data || !data.length) { list.innerHTML = '<div class="empty">Nog geen aanvragen binnengekomen.</div>'; return; }
+    list.innerHTML = data.map(q => `
+      <div class="qr-item">
+        <div class="qr-top"><span>${q.name}</span><span>${q.theme || '—'}</span></div>
+        <div class="qr-meta">${q.email}${q.phone ? ' · ' + q.phone : ''}${q.guests ? ' · ' + q.guests + ' gasten' : ''}${q.event_date ? ' · ' + q.event_date : ''} · ${new Date(q.created_at).toLocaleString('nl-NL')}</div>
+        ${q.message ? `<div class="qr-msg">${q.message}</div>` : ''}
+      </div>
+    `).join('');
+  }
+  document.getElementById('refreshQr').addEventListener('click', loadQuoteRequests);
+
+  checkSession();
+</script>
+</body>
+</html>
