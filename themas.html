@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onze thema's — Maison Moments</title>
+<meta name="description" content="Ontdek de feestconcepten van Maison Moments: tipi-slaapfeestjes en meer, volledig geleverd, opgebouwd en gestyled.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Caveat:wght@500;600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mm.css">
+<script src="assets/mm-data.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a href="site-volledig.html" class="brand"><img src="assets/logo.jpg" alt="Maison Moments logo"></a>
+    <nav class="links" id="navLinks">
+      <a href="site-volledig.html#over-ons">Over ons</a>
+      <a href="themas.html" aria-current="page">Thema's</a>
+      <a href="site-volledig.html#werkwijze">Hoe het werkt</a>
+      <a href="site-volledig.html#contact">Contact</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a href="site-volledig.html#contact" class="cta-btn">Offerte aanvragen</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="page-head">
+    <nav class="crumbs" aria-label="Kruimelpad"><a href="site-volledig.html">Home</a><span>/</span><span>Thema's</span></nav>
+    <div class="eyebrow">Onze thema's</div>
+    <h1>Kies je feestconcept</h1>
+    <p class="lead">Elk concept heeft zijn eigen thema's. Klik door om ze allemaal te bekijken, met foto's, prijzen en beschikbaarheid.</p>
+  </div>
+
+  <div class="tiles" id="conceptTiles"></div>
+</main>
+
+<footer>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Maison Moments</span>
+    <nav>
+      <a href="themas.html">Thema's</a>
+      <a href="site-volledig.html#contact">Contact</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  MM.initMenu();
+
+  (async () => {
+    const { concepts, themes } = await MM.loadCatalog();
+    const grid = document.getElementById('conceptTiles');
+    if (!concepts.length) {
+      grid.innerHTML = '<div class="empty">Binnenkort vind je hier onze feestconcepten.</div>';
+      return;
+    }
+    grid.innerHTML = concepts.map(c => {
+      const count = themes.filter(t => t.concept === c.slug).length;
+      return `
+        <a class="tile" href="concept.html?c=${encodeURIComponent(c.slug)}">
+          <div class="tile-top" style="${MM.tileBackground(c)}">${c.cover ? '' : MM.esc(c.emoji)}</div>
+          <div class="tile-body">
+            <h2>${MM.esc(c.name)}</h2>
+            <p>${MM.esc(c.tagline)}</p>
+            ${c.priceFrom ? `<div class="tile-price">vanaf <b>${MM.euro(c.priceFrom)}</b> ${MM.esc(c.priceUnit || '')}</div>` : ''}
+            <span class="tile-more">${count} thema${count === 1 ? '' : "'s"} bekijken</span>
+          </div>
+        </a>`;
+    }).join('');
+  })();
+</script>
+
+</body>
+</html>

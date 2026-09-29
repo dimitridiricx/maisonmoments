@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thema — Maison Moments</title>
+<meta name="description" content="Foto's, prijzen, praktische info en beschikbaarheid van dit Maison Moments-thema.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Caveat:wght@500;600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mm.css">
+<script src="assets/mm-data.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a href="site-volledig.html" class="brand"><img src="assets/logo.jpg" alt="Maison Moments logo"></a>
+    <nav class="links" id="navLinks">
+      <a href="site-volledig.html#over-ons">Over ons</a>
+      <a href="themas.html" aria-current="page">Thema's</a>
+      <a href="site-volledig.html#werkwijze">Hoe het werkt</a>
+      <a href="site-volledig.html#contact">Contact</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a href="site-volledig.html#contact" class="cta-btn">Offerte aanvragen</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="content"></main>
+
+<footer>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Maison Moments</span>
+    <nav>
+      <a href="themas.html">Thema's</a>
+      <a href="site-volledig.html#contact">Contact</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  MM.initMenu();
+
+  // Enkel http(s)-links of bestanden op de eigen site toelaten.
+  function safeUrl(url) {
+    const u = String(url || '').trim();
+    if (/^https?:\/\//i.test(u) || /^[\w./-]+$/.test(u)) return encodeURI(u);
+    return '';
+  }
+  function youtubeId(url) {
+    const m = String(url || '').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);
+    return m ? m[1] : '';
+  }
+
+  function mediaHtml(m, theme) {
+    const alt = MM.esc(m.caption || theme.name);
+    if (m.type === 'youtube' && youtubeId(m.url)) {
+      return `<iframe src="https://www.youtube-nocookie.com/embed/${youtubeId(m.url)}" title="${alt}" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+    }
+    if (m.type === 'video' && safeUrl(m.url)) {
+      return `<video src="${safeUrl(m.url)}" controls playsinline preload="metadata"></video>`;
+    }
+    if (safeUrl(m.url)) return `<img src="${safeUrl(m.url)}" alt="${alt}">`;
+    return MM.esc(theme.emoji);
+  }
+
+  function thumbHtml(m, i, theme) {
+    const inner = m.type === 'image' && safeUrl(m.url)
+      ? `<img src="${safeUrl(m.url)}" alt="">`
+      : `<span class="play">▶</span>`;
+    return `<button type="button" data-i="${i}" aria-label="Toon ${MM.esc(m.caption || 'media ' + (i + 1))}" ${i === 0 ? 'aria-current="true"' : ''}>${inner}</button>`;
+  }
+
+  (async () => {
+    const { concepts, themes } = await MM.loadCatalog();
+    const main = document.getElementById('content');
+    const theme = themes.find(t => t.slug === MM.param('t'));
+    const concept = theme && concepts.find(c => c.slug === theme.concept);
+
+    if (!theme || !concept) {
+      main.innerHTML = `
+        <div class="page-head">
+          <h1>Dit thema vonden we niet</h1>
+          <p class="lead"><a class="btn-outline" href="themas.html">Terug naar alle thema's</a></p>
+        </div>`;
+      return;
+    }
+
+    document.title = `${theme.name} — ${concept.name} — Maison Moments`;
+    const get = field => MM.resolve(theme, concept, field);
+    const media = theme.media || [];
+    const pricing = get('pricing') || [];
+    const included = get('included') || [];
+    const infoSections = get('infoSections') || [];
+
+    main.innerHTML = `
+      <div class="page-head" style="padding-bottom:24px;">
+        <nav class="crumbs" aria-label="Kruimelpad">
+          <a href="site-volledig.html">Home</a><span>/</span>
+          <a href="themas.html">Thema's</a><span>/</span>
+          <a href="concept.html?c=${encodeURIComponent(concept.slug)}">${MM.esc(concept.name)}</a><span>/</span>
+          <span>${MM.esc(theme.name)}</span>
+        </nav>
+      </div>
+
+      <section class="detail-hero">
+        <div>
+          <div class="gallery-main" id="galleryMain" style="${media.length ? '' : MM.tileBackground(theme)}">
+            ${media.length ? mediaHtml(media[0], theme) : MM.esc(theme.emoji)}
+          </div>
+          ${media.length > 1 ? `<div class="gallery-thumbs" id="galleryThumbs">${media.map((m, i) => thumbHtml(m, i, theme)).join('')}</div>` : ''}
+        </div>
+        <div class="detail-side">
+          <div class="eyebrow">${MM.esc(concept.name)}</div>
+          <h1>${MM.esc(theme.name)}</h1>
+          <p class="lead">${MM.esc(theme.description)}</p>
+          ${get('priceFrom') ? `<div class="price-from">vanaf <b>${MM.euro(get('priceFrom'))}</b> ${MM.esc(get('priceUnit') || '')}</div>` : ''}
+          <div class="hero-ctas">
+            <a href="#beschikbaarheid" class="cta-btn">Bekijk beschikbaarheid</a>
+            <a href="#prijzen" class="btn-outline">Prijzen &amp; info</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="panels" id="prijzen">
+        ${pricing.length ? `
+        <div class="panel">
+          <h2>Prijzen</h2>
+          ${get('pricingIntro') ? `<p>${MM.esc(get('pricingIntro'))}</p>` : ''}
+          <table class="price-table">
+            ${pricing.map(p => `<tr><td>${MM.esc(p.label)}</td><td>${MM.euro(p.price)}</td></tr>`).join('')}
+          </table>
+          ${get('pricingNote') ? `<p class="note">${MM.esc(get('pricingNote'))}</p>` : ''}
+        </div>` : ''}
+        ${included.length ? `
+        <div class="panel">
+          <h2>Inbegrepen</h2>
+          <ul>${included.map(i => `<li>${MM.esc(i)}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${infoSections.map(s => `
+        <div class="panel">
+          <h2>${MM.esc(s.title)}</h2>
+          <p>${MM.esc(s.body)}</p>
+        </div>`).join('')}
+        <div class="panel full" id="beschikbaarheid">
+          <h2>Beschikbaarheid</h2>
+          <div class="placeholder">📅 Hier komt de beschikbaarheidskalender met het aanvraagformulier.</div>
+        </div>
+      </section>`;
+
+    // galerij: klik op een miniatuur om die groot te tonen
+    const thumbs = document.getElementById('galleryThumbs');
+    if (thumbs) {
+      thumbs.addEventListener('click', e => {
+        const btn = e.target.closest('button[data-i]');
+        if (!btn) return;
+        document.getElementById('galleryMain').innerHTML = mediaHtml(media[Number(btn.dataset.i)], theme);
+        thumbs.querySelectorAll('button').forEach(b => b.removeAttribute('aria-current'));
+        btn.setAttribute('aria-current', 'true');
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>
