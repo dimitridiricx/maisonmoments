@@ -8,8 +8,9 @@ const Catalog = (() => {
   const BUCKET = "theme-media";
   const MAX_IMAGE_SIDE = 1600;   // foto's worden vóór upload verkleind
   const DETAIL_FIELDS = ["price_from", "price_unit", "pricing_intro", "pricing", "pricing_note", "included", "info_sections"];
-  const CONCEPT_COLUMNS = ["id", "slug", "name", "emoji", "tagline", "description", "cover_url", "color_from", "color_to", "published", "sort_order", ...DETAIL_FIELDS];
-  const THEME_COLUMNS = [...CONCEPT_COLUMNS, "concept_id"];
+  const BASE_COLUMNS = ["id", "slug", "name", "emoji", "tagline", "description", "cover_url", "color_from", "color_to", "published", "sort_order", ...DETAIL_FIELDS];
+  const CONCEPT_COLUMNS = [...BASE_COLUMNS, "cover_focus_x", "cover_focus_y"];
+  const THEME_COLUMNS = [...BASE_COLUMNS, "concept_id"];
 
   let concepts = [], themes = [], media = [];
   let root;
@@ -205,15 +206,60 @@ const Catalog = (() => {
         if (up.error) throw up.error;
         obj.cover_url = url.value = supabaseClient.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
         setStatus(statusNode, "Geüpload — vergeet niet op te slaan");
+        drawFocus();
       } catch (err) {
         console.error(err);
         setStatus(statusNode, "Upload mislukt", true);
       }
     });
+    // focuspunt (wordt bewaard met "Concept opslaan")
+    const focusBox = el("div");
+    const drawFocus = () => focusBox.replaceChildren(
+      ...(obj.cover_url ? [focusPicker(obj.cover_url, obj, "cover_focus_x", "cover_focus_y")] : []));
+    url.addEventListener("change", drawFocus);
+    drawFocus();
     return el("div", { class: "full" }, el("label", { text: "Tegelfoto (optioneel)" }),
       el("div", { class: "media-actions" }, url,
         el("button", { class: "btn btn-outline btn-sm", type: "button", text: "Foto uploaden", onclick: () => fileInput.click() }),
-        fileInput, statusNode));
+        fileInput, statusNode),
+      focusBox);
+  }
+
+  // Focuspunt kiezen: klik op de volledige foto; de voorbeelden tonen
+  // hoe de tegel en de galerij de foto dan bijsnijden.
+  function focusPicker(url, obj, kx, ky, onSave) {
+    obj[kx] = obj[kx] ?? 50;
+    obj[ky] = obj[ky] ?? 50;
+    const img = el("img", { src: url, alt: "" });
+    const dot = el("span", { class: "focus-dot" });
+    const tile = el("div", { class: "focus-prev prev-tile" });
+    const gallery = el("div", { class: "focus-prev prev-gallery" });
+    const statusNode = status();
+    const apply = () => {
+      dot.style.left = obj[kx] + "%";
+      dot.style.top = obj[ky] + "%";
+      [tile, gallery].forEach(p => {
+        p.style.backgroundImage = `url("${encodeURI(url)}")`;
+        p.style.backgroundPosition = `${obj[kx]}% ${obj[ky]}%`;
+      });
+    };
+    const frame = el("div", { class: "focus-frame", title: "Klik op het belangrijkste deel van de foto" }, img, dot);
+    frame.addEventListener("click", async e => {
+      const r = img.getBoundingClientRect();
+      obj[kx] = Math.round(Math.min(100, Math.max(0, (e.clientX - r.left) / r.width * 100)));
+      obj[ky] = Math.round(Math.min(100, Math.max(0, (e.clientY - r.top) / r.height * 100)));
+      apply();
+      if (onSave) {
+        const error = await onSave();
+        setStatus(statusNode, error ? "Focuspunt opslaan mislukt" : "Focuspunt opgeslagen ✓", !!error);
+      }
+    });
+    apply();
+    return el("div", { class: "focus-box" },
+      el("div", {}, el("div", { class: "focus-help", text: "Klik op het deel van de foto dat altijd zichtbaar moet blijven." }), frame, statusNode),
+      el("div", { class: "focus-previews" },
+        el("div", {}, el("small", { text: "Tegel" }), tile),
+        el("div", {}, el("small", { text: "Galerij" }), gallery)));
   }
 
   const themeMedia = theme => media.filter(m => m.theme_id === theme.id).sort((a, b) => a.sort_order - b.sort_order);
@@ -227,21 +273,39 @@ const Catalog = (() => {
     const box = el("div", { class: "media-box full" });
     const statusNode = status();
     const grid = el("div", { class: "media-grid" });
+    const focusBox = el("div");
+    let focusFor = null;   // id van de foto waarvan het focuspunt open staat
 
     const draw = () => {
+      focusBox.replaceChildren();
       if (!theme._saved) {
         grid.replaceChildren(el("div", { class: "empty", text: "Sla het thema eerst op, daarna kan je foto's en video's toevoegen." }));
         return;
       }
       const items = themeMedia(theme);
+      const focused = items.find(m => m.id === focusFor && m.type === "image");
+      if (focused) {
+        focusBox.append(focusPicker(focused.url, focused, "focus_x", "focus_y", async () => {
+          const { error } = await supabaseClient.from("theme_media")
+            .update({ focus_x: focused.focus_x, focus_y: focused.focus_y }).eq("id", focused.id);
+          const thumb = grid.querySelector(`[data-media="${focused.id}"]`);
+          if (thumb) thumb.style.objectPosition = `${focused.focus_x}% ${focused.focus_y}%`;
+          return error;
+        }));
+      }
       if (!items.length) {
         grid.replaceChildren(el("div", { class: "empty", text: "Nog geen foto's of video's. De eerste foto wordt de tegelfoto." }));
         return;
       }
       grid.replaceChildren(...items.map((m, i) => {
         const preview = m.type === "image"
-          ? el("img", { src: m.url, alt: "" })
+          ? el("img", { src: m.url, alt: "", title: "Klik om het focuspunt te kiezen", "data-media": m.id })
           : el("img", { src: `https://img.youtube.com/vi/${youtubeId(m.url)}/mqdefault.jpg`, alt: "" });
+        if (m.type === "image") {
+          preview.style.objectPosition = `${m.focus_x ?? 50}% ${m.focus_y ?? 50}%`;
+          preview.style.cursor = "pointer";
+          preview.addEventListener("click", () => { focusFor = focusFor === m.id ? null : m.id; draw(); });
+        }
         const caption = el("input", { type: "text", placeholder: "Bijschrift (optioneel)" });
         caption.value = m.caption || "";
         caption.addEventListener("change", async () => {
@@ -249,7 +313,7 @@ const Catalog = (() => {
           const { error } = await supabaseClient.from("theme_media").update({ caption: m.caption }).eq("id", m.id);
           setStatus(statusNode, error ? "Bijschrift opslaan mislukt" : "Bijschrift opgeslagen ✓", !!error);
         });
-        return el("div", { class: "media-item" },
+        return el("div", { class: "media-item" + (focusFor === m.id ? " active" : "") },
           el("div", { class: "media-thumb" }, preview, m.type === "youtube" && el("span", { class: "badge", text: "▶ YouTube" }),
             i === 0 && m.type === "image" && el("span", { class: "badge badge-cover", text: "Tegelfoto" })),
           caption,
@@ -289,8 +353,9 @@ const Catalog = (() => {
     };
 
     box.append(
-      el("label", { text: "Foto's en video's" }),
+      el("label", { text: "Foto's en video's — klik op een foto om te kiezen welk deel zichtbaar blijft" }),
       grid,
+      focusBox,
       el("div", { class: "media-actions" },
         el("button", { class: "btn btn-outline btn-sm", type: "button", text: "+ Foto's uploaden",
           onclick: () => theme._saved ? fileInput.click() : setStatus(statusNode, "Sla het thema eerst op", true) }),
@@ -415,7 +480,8 @@ const Catalog = (() => {
       el("button", { class: "btn btn-outline btn-sm", type: "button", text: "+ Concept toevoegen", onclick: () => {
         concepts.push({ id: crypto.randomUUID(), name: "", slug: "", emoji: "🎈", tagline: "", description: "",
           color_from: "#E9DCC9", color_to: "#D9BD97", price_unit: "", pricing_intro: "", pricing: [], pricing_note: "",
-          included: [], info_sections: [], published: false, sort_order: concepts.length + 1 });
+          included: [], info_sections: [], published: false, sort_order: concepts.length + 1,
+          cover_focus_x: 50, cover_focus_y: 50 });
         render();
       } })
     );

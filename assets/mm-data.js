@@ -148,16 +148,17 @@ const MM = {
     });
     const slugById = Object.fromEntries(concepts.map(c => [c.id, c.slug]));
     return {
-      concepts: concepts.map(c => ({ slug: c.slug, ...shared(c) })),
+      concepts: concepts.map(c => ({ slug: c.slug, ...shared(c), focusX: c.cover_focus_x, focusY: c.cover_focus_y })),
       themes: themes
         .filter(t => slugById[t.concept_id])
         .map(t => {
           const own = media.filter(x => x.theme_id === t.id)
-            .map(x => ({ type: x.type, url: x.url, caption: x.caption }));
+            .map(x => ({ type: x.type, url: x.url, caption: x.caption, focusX: x.focus_x, focusY: x.focus_y }));
           const firstImage = own.find(x => x.type === "image");
           return {
             slug: t.slug, concept: slugById[t.concept_id], ...shared(t),
             cover: t.cover_url || (firstImage && firstImage.url) || null,
+            focusX: firstImage && firstImage.focusX, focusY: firstImage && firstImage.focusY,
             media: own
           };
         })
@@ -186,8 +187,14 @@ const MM = {
 
   // Achtergrond voor een tegel: foto als die er is, anders het kleurverloop.
   tileBackground(item) {
-    if (item.cover) return `background-image:url('${encodeURI(item.cover).replace(/'/g, "%27")}')`;
+    if (item.cover) return `background-image:url('${encodeURI(item.cover).replace(/'/g, "%27")}');background-position:${MM.focus(item)}`;
     return `background:linear-gradient(140deg, ${MM.color(item.colorFrom, "#E9DCC9")}, ${MM.color(item.colorTo, "#D9BD97")})`;
+  },
+
+  // Focuspunt van een foto als CSS-positie ("50% 30%"); standaard het midden.
+  focus(item) {
+    const pct = v => (Number.isFinite(Number(v)) && v !== null && v !== "" ? Math.min(100, Math.max(0, Number(v))) : 50);
+    return `${pct(item && item.focusX)}% ${pct(item && item.focusY)}%`;
   },
 
   color(value, fallback) {

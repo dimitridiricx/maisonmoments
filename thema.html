@@ -64,13 +64,13 @@
     if (m.type === 'video' && safeUrl(m.url)) {
       return `<video src="${safeUrl(m.url)}" controls playsinline preload="metadata"></video>`;
     }
-    if (safeUrl(m.url)) return `<img src="${safeUrl(m.url)}" alt="${alt}">`;
+    if (safeUrl(m.url)) return `<img src="${safeUrl(m.url)}" alt="${alt}" style="object-position:${MM.focus(m)}">`;
     return MM.esc(theme.emoji);
   }
 
   function thumbHtml(m, i, theme) {
     const inner = m.type === 'image' && safeUrl(m.url)
-      ? `<img src="${safeUrl(m.url)}" alt="">`
+      ? `<img src="${safeUrl(m.url)}" alt="" style="object-position:${MM.focus(m)}">`
       : `<span class="play">▶</span>`;
     return `<button type="button" data-i="${i}" aria-label="Toon ${MM.esc(m.caption || 'media ' + (i + 1))}" ${i === 0 ? 'aria-current="true"' : ''}>${inner}</button>`;
   }
