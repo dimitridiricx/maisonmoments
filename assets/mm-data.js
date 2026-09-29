@@ -120,8 +120,48 @@ const DEFAULT_CATALOG = {
 
 /* ---------------- helpers ---------------- */
 const MM = {
+  // Laadt concepten, thema's en media uit Supabase (beheerd via admin.html).
+  // Lukt dat niet, of is er nog niets ingevuld, dan de demo-inhoud hierboven.
   async loadCatalog() {
-    return DEFAULT_CATALOG;
+    if (typeof supabaseClient === "undefined" || !supabaseClient) return DEFAULT_CATALOG;
+    try {
+      const [c, t, m] = await Promise.all([
+        supabaseClient.from("concepts").select("*").eq("published", true).order("sort_order"),
+        supabaseClient.from("party_themes").select("*").eq("published", true).order("sort_order"),
+        supabaseClient.from("theme_media").select("*").order("sort_order")
+      ]);
+      if (c.error || t.error || m.error || !c.data.length) throw new Error("catalogus onvolledig");
+      return MM.fromDb(c.data, t.data, m.data);
+    } catch (err) {
+      console.warn("Demo-inhoud getoond:", err.message);
+      return DEFAULT_CATALOG;
+    }
+  },
+
+  // Databasevelden (snake_case) omzetten naar de vorm die de pagina's gebruiken.
+  fromDb(concepts, themes, media) {
+    const shared = row => ({
+      name: row.name, emoji: row.emoji, tagline: row.tagline, description: row.description,
+      cover: row.cover_url || null, colorFrom: row.color_from, colorTo: row.color_to,
+      priceFrom: row.price_from, priceUnit: row.price_unit, pricingIntro: row.pricing_intro,
+      pricing: row.pricing, pricingNote: row.pricing_note, included: row.included, infoSections: row.info_sections
+    });
+    const slugById = Object.fromEntries(concepts.map(c => [c.id, c.slug]));
+    return {
+      concepts: concepts.map(c => ({ slug: c.slug, ...shared(c) })),
+      themes: themes
+        .filter(t => slugById[t.concept_id])
+        .map(t => {
+          const own = media.filter(x => x.theme_id === t.id)
+            .map(x => ({ type: x.type, url: x.url, caption: x.caption }));
+          const firstImage = own.find(x => x.type === "image");
+          return {
+            slug: t.slug, concept: slugById[t.concept_id], ...shared(t),
+            cover: t.cover_url || (firstImage && firstImage.url) || null,
+            media: own
+          };
+        })
+    };
   },
 
   // Waarde van het thema zelf, anders die van het concept.

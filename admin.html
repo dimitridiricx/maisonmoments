@@ -6,8 +6,9 @@
 <title>Maison Moments — Beheer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
+<script src="assets/admin-catalog.js"></script>
 <style>
   :root{
     --cream:#FBF6EC; --cream-deep:#F4EBDC; --espresso:#3A2E27;
@@ -63,6 +64,33 @@
   .qr-item .qr-msg{font-size:13.5px;color:#5b4c40;}
   .empty{font-size:13.5px;color:#8a7a6c;}
   #adminArea{display:none;}
+  /* concepten & thema's */
+  details.item{border:1px solid var(--line);border-radius:16px;padding:0 18px;margin-bottom:14px;background:#fff;}
+  details.item[open]{padding-bottom:18px;}
+  details.item > summary{cursor:pointer;padding:16px 0;font-family:'Fraunces',serif;font-size:17px;display:flex;gap:10px;align-items:center;}
+  details.concept{background:var(--cream);}
+  details.concept > summary{font-size:20px;}
+  .pill{font-family:'Jost',sans-serif;font-size:11.5px;background:var(--cream-deep);color:#8a4b3a;padding:2px 10px;border-radius:999px;}
+  .block-title{font-size:15px;margin:22px 0 12px;color:var(--tan);}
+  .theme-fields.override{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+  .check{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--espresso);cursor:pointer;}
+  .mini-row{display:grid;grid-template-columns:1fr 130px auto;gap:10px;align-items:end;margin-bottom:8px;}
+  .section-row{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;display:grid;gap:8px;}
+  .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:12px;}
+  .media-item{border:1px solid var(--line);border-radius:12px;padding:8px;display:grid;gap:6px;}
+  .media-item .row-actions{margin-top:0;justify-content:space-between;}
+  .media-thumb{position:relative;aspect-ratio:4/3;border-radius:8px;overflow:hidden;background:var(--cream-deep);}
+  .media-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .badge{position:absolute;left:6px;top:6px;font-size:11px;background:rgba(58,46,39,0.8);color:#fff;padding:2px 8px;border-radius:999px;}
+  .badge-cover{left:auto;right:6px;background:var(--coral);}
+  .media-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .media-actions input[type=text]{flex:1;min-width:200px;}
+  @media(max-width:680px){
+    .wrap{padding:24px 16px 70px;}
+    .theme-edit,.theme-fields,.price-grid{grid-template-columns:1fr;}
+    .mini-row{grid-template-columns:1fr 100px auto;}
+    .addon-row{grid-template-columns:1fr 90px;}
+  }
 </style>
 </head>
 <body>
@@ -98,9 +126,16 @@
     er hoeft niets geüpload te worden.
   </div>
 
+  <!-- CONCEPTEN & THEMA'S (themapagina's) -->
+  <div class="panel">
+    <h2>Concepten &amp; thema's</h2>
+    <div class="sub">Wat bezoekers zien na "Bekijk onze thema's": concepten (bv. Slaapfeestjes), met daarin de thema's, foto's, video's, prijzen en info. Nieuwe thema's staan verborgen tot je "Zichtbaar op de website" aanvinkt.</div>
+    <div id="catalogList"></div>
+  </div>
+
   <!-- THEMES -->
   <div class="panel">
-    <h2>Thema's</h2>
+    <h2>Thema's (oude homepagina-sectie)</h2>
     <div class="sub">Wijzigingen per thema worden pas opgeslagen als je op "Opslaan" bij dat thema klikt.</div>
     <div id="themeList"></div>
     <button class="btn btn-outline btn-sm" id="addTheme">+ Thema toevoegen</button>
@@ -191,7 +226,11 @@
       document.getElementById('dayExtraPrice').value = p.day_extra_price;
     }
     loadQuoteRequests();
+    Catalog.load(document.getElementById('catalogList'));
   }
+
+  // Tekst uit de database altijd escapen voor ze in innerHTML komt.
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function renderThemes(){
     const list = document.getElementById('themeList');
@@ -200,19 +239,19 @@
       const row = document.createElement('div');
       row.className = 'theme-edit';
       row.innerHTML = `
-        <div class="theme-preview" style="background:linear-gradient(140deg, ${t.color_from}, ${t.color_to});">${t.emoji || '🎈'}</div>
+        <div class="theme-preview" style="background:linear-gradient(140deg, ${esc(t.color_from)}, ${esc(t.color_to)});">${esc(t.emoji || '🎈')}</div>
         <div>
           <div class="theme-fields">
-            <div><label>Naam</label><input type="text" data-f="name" value="${t.name}"></div>
-            <div><label>Categorie-label</label><input type="text" data-f="tag" value="${t.tag}"></div>
-            <div><label>Emoji</label><input type="text" data-f="emoji" value="${t.emoji}"></div>
-            <div><label>Prijs (€, vanaf)</label><input type="number" data-f="price" value="${t.price}" min="0" step="1"></div>
-            <div class="full"><label>Beschrijving</label><textarea data-f="description">${t.description}</textarea></div>
+            <div><label>Naam</label><input type="text" data-f="name" value="${esc(t.name)}"></div>
+            <div><label>Categorie-label</label><input type="text" data-f="tag" value="${esc(t.tag)}"></div>
+            <div><label>Emoji</label><input type="text" data-f="emoji" value="${esc(t.emoji)}"></div>
+            <div><label>Prijs (€, vanaf)</label><input type="number" data-f="price" value="${esc(t.price)}" min="0" step="1"></div>
+            <div class="full"><label>Beschrijving</label><textarea data-f="description">${esc(t.description)}</textarea></div>
             <div class="full color-row">
-              <div class="cg"><label>Kleur 1</label><input type="color" data-f="color_from" value="${t.color_from}"></div>
-              <div class="cg"><label>Kleur 2</label><input type="color" data-f="color_to" value="${t.color_to}"></div>
-              <div class="cg"><label>Label-achtergrond</label><input type="color" data-f="tag_bg" value="${t.tag_bg}"></div>
-              <div class="cg"><label>Label-tekst</label><input type="color" data-f="tag_text" value="${t.tag_text}"></div>
+              <div class="cg"><label>Kleur 1</label><input type="color" data-f="color_from" value="${esc(t.color_from)}"></div>
+              <div class="cg"><label>Kleur 2</label><input type="color" data-f="color_to" value="${esc(t.color_to)}"></div>
+              <div class="cg"><label>Label-achtergrond</label><input type="color" data-f="tag_bg" value="${esc(t.tag_bg)}"></div>
+              <div class="cg"><label>Label-tekst</label><input type="color" data-f="tag_text" value="${esc(t.tag_text)}"></div>
             </div>
           </div>
           <div class="row-actions">
@@ -253,8 +292,8 @@
       const row = document.createElement('div');
       row.className = 'addon-row';
       row.innerHTML = `
-        <div><label>Naam</label><input type="text" data-f="name" value="${a.name}"></div>
-        <div><label>Prijs (€)</label><input type="number" data-f="price" value="${a.price}" min="0" step="1"></div>
+        <div><label>Naam</label><input type="text" data-f="name" value="${esc(a.name)}"></div>
+        <div><label>Prijs (€)</label><input type="number" data-f="price" value="${esc(a.price)}" min="0" step="1"></div>
         <button class="btn btn-coral btn-sm" data-save>Opslaan</button>
         <button class="btn btn-ghost btn-sm" data-remove>✕</button>
       `;
@@ -306,9 +345,9 @@
     if (!data || !data.length) { list.innerHTML = '<div class="empty">Nog geen aanvragen binnengekomen.</div>'; return; }
     list.innerHTML = data.map(q => `
       <div class="qr-item">
-        <div class="qr-top"><span>${q.name}</span><span>${q.theme || '—'}</span></div>
-        <div class="qr-meta">${q.email}${q.phone ? ' · ' + q.phone : ''}${q.guests ? ' · ' + q.guests + ' gasten' : ''}${q.event_date ? ' · ' + q.event_date : ''} · ${new Date(q.created_at).toLocaleString('nl-NL')}</div>
-        ${q.message ? `<div class="qr-msg">${q.message}</div>` : ''}
+        <div class="qr-top"><span>${esc(q.name)}</span><span>${esc(q.theme || '—')}</span></div>
+        <div class="qr-meta">${esc(q.email)}${q.phone ? ' · ' + esc(q.phone) : ''}${q.guests ? ' · ' + esc(q.guests) + ' gasten' : ''}${q.event_date ? ' · ' + esc(q.event_date) : ''} · ${new Date(q.created_at).toLocaleString('nl-NL')}</div>
+        ${q.message ? `<div class="qr-msg">${esc(q.message)}</div>` : ''}
       </div>
     `).join('');
   }
