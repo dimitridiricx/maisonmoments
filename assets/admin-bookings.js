@@ -96,7 +96,9 @@ const Bookings = (() => {
       el("div", { class: "res-grid" },
         el("div", {},
           el("b", { text: r.name }), el("br"), mail, el("br"), tel, el("br"),
-          el("span", { text: r.address })),
+          el("span", { text: r.address }),
+          r.distance_km != null && el("div", { class: "res-distance",
+            text: `± ${r.distance_km} km vogelvlucht${Number(r.delivery_surcharge) > 0 ? ` · levering +€${r.delivery_surcharge}` : " · levering inbegrepen"}` })),
         el("div", { class: "res-access" },
           el("div", { text: `Parkeren vlakbij: ${yn(r.parking_near)} · Laadplaats ≤ 25 m: ${yn(r.loading_within_25m)}` }),
           el("div", { text: `Gelijkvloers: ${yn(r.ground_floor)} · Trappen: ${yn(r.has_stairs)} · Lift: ${yn(r.has_elevator)}` }),
@@ -147,19 +149,33 @@ const Bookings = (() => {
       input.addEventListener("input", () => { settings[key] = Number(input.value); });
       return el("div", {}, el("label", { text: label }), input, help && el("small", { class: "help", text: help }));
     };
+    const hasMailFields = "payment_instructions" in settings;   // schema-v5 uitgevoerd?
+    const payment = el("textarea", { rows: 3, placeholder: "bv. Rekeningnummer BE00 0000 0000 0000 op naam van …, met vermelding van je naam en datum. Of via Payconiq." });
+    payment.value = settings.payment_instructions || "";
+    payment.addEventListener("input", () => { settings.payment_instructions = payment.value; });
+    const fields = ["total_tipis", "min_tipis", "months_ahead", "min_days_notice",
+      ...(hasMailFields ? ["free_km", "max_km", "distance_surcharge", "deposit_amount", "deposit_days", "guarantee_amount", "payment_instructions"] : [])];
+
     els.settings.replaceChildren(
       el("div", { class: "price-grid" },
         num("Totaal aantal tipi's", "total_tipis", "Een weekend is volzet als de bevestigde reservaties samen dit aantal bereiken."),
         num("Minimum tipi's per boeking", "min_tipis"),
         num("Hoeveel maanden vooruit boekbaar", "months_ahead"),
         num("Minimum dagen op voorhand", "min_days_notice", "Weekends die dichterbij liggen, kunnen niet meer aangevraagd worden.")),
+      hasMailFields && el("h3", { class: "block-title", text: "Levering en betaling" }),
+      hasMailFields && el("div", { class: "price-grid" },
+        num("Levering gratis tot (km, vogelvlucht)", "free_km"),
+        num("Maximale afstand (km)", "max_km", "Verder weg: de klant ziet dat je het eerst samen bekijkt."),
+        num("Toeslag tussen beide afstanden (€)", "distance_surcharge"),
+        num("Voorschot (€)", "deposit_amount"),
+        num("Voorschot betalen binnen (dagen)", "deposit_days"),
+        num("Waarborg (€)", "guarantee_amount")),
+      hasMailFields && el("div", {}, el("label", { text: "Betaalgegevens voor het voorschot (komen in de bevestigingsmail)" }), payment),
       el("div", { class: "row-actions" }, statusNode,
         el("button", { class: "btn btn-coral btn-sm", type: "button", text: "Instellingen opslaan", onclick: async () => {
           setStatus(statusNode, "Opslaan…");
-          const { error } = await supabaseClient.from("booking_settings").update({
-            total_tipis: settings.total_tipis, min_tipis: settings.min_tipis,
-            months_ahead: settings.months_ahead, min_days_notice: settings.min_days_notice
-          }).eq("id", 1);
+          const { error } = await supabaseClient.from("booking_settings")
+            .update(Object.fromEntries(fields.map(f => [f, settings[f]]))).eq("id", 1);
           setStatus(statusNode, error ? "Opslaan mislukt — controleer de waarden" : "Opgeslagen ✓", !!error);
         } }))
     );

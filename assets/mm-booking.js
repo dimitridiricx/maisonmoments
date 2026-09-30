@@ -155,7 +155,8 @@ const Booking = (() => {
         </div>
         <div class="frow">
           <div><label for="bEmail">E-mailadres *</label><input id="bEmail" name="email" type="email" required maxlength="200" autocomplete="email"></div>
-          <div><label for="bAddress">Adres van het feestje *</label><input id="bAddress" name="address" required maxlength="300" autocomplete="street-address"></div>
+          <div><label for="bAddress">Adres van het feestje *</label><input id="bAddress" name="address" required maxlength="300" autocomplete="street-address" placeholder="Straat nr, postcode gemeente">
+            <div class="distance" id="bDistance" role="status"></div></div>
         </div>
         <h4>Bereikbaarheid</h4>
         <div class="yn-grid">
@@ -177,8 +178,8 @@ const Booking = (() => {
         <div class="hp" aria-hidden="true"><label>Laat dit veld leeg<input name="website" tabindex="-1" autocomplete="off"></label></div>
         <label class="consent"><input type="checkbox" name="privacy" required>
           Ik ga akkoord dat Maison Moments mijn gegevens gebruikt om deze aanvraag te behandelen.</label>
-        <p class="note">We nemen na ontvangst contact op om de beschikbaarheid, planning en totaalprijs te bevestigen. Levering van 15 tot 30 km: €15 extra.
-          De reservatie is definitief na betaling van het voorschot.</p>
+        <p class="note">We nemen na ontvangst contact op om de beschikbaarheid, planning en totaalprijs te bevestigen.
+          De reservatie is definitief na betaling van het voorschot. Je ontvangt een bevestiging van je aanvraag per mail.</p>
         <button type="submit" class="cta-btn">Aanvraag versturen</button>
         <div class="form-msg" role="status"></div>
       </form>`;
@@ -186,10 +187,49 @@ const Booking = (() => {
     const select = box.querySelector("#bTipis");
     const showPrice = () => {
       const p = select.selectedOptions[0]?.dataset.price;
-      box.querySelector("#bPrice").textContent = p ? MM.euro(p) : "op aanvraag";
+      const extra = state.distance?.surcharge || 0;
+      box.querySelector("#bPrice").textContent = p
+        ? MM.euro(Number(p) + extra) + (extra ? ` (incl. ${MM.euro(extra)} levering)` : "")
+        : "op aanvraag";
     };
     select.addEventListener("change", showPrice);
     showPrice();
+
+    // afstand berekenen zodra het adres ingevuld is (niet bij elke toets)
+    state.distance = null;
+    const address = box.querySelector("#bAddress");
+    const distanceBox = box.querySelector("#bDistance");
+    address.addEventListener("change", async () => {
+      state.distance = null;
+      showPrice();
+      const value = address.value.trim();
+      if (value.length < 5) { distanceBox.textContent = ""; return; }
+      distanceBox.className = "distance";
+      distanceBox.textContent = "Afstand berekenen…";
+      try {
+        const { data, error } = await supabaseClient.functions.invoke("quote-distance", { body: { address: value } });
+        if (address.value.trim() !== value) return;   // intussen gewijzigd
+        if (error || !data) throw error || new Error("geen antwoord");
+        if (!data.found) {
+          distanceBox.className = "distance warn";
+          distanceBox.textContent = "We vinden dit adres niet terug. Controleer straat, nummer en gemeente; we bevestigen de levering sowieso nog.";
+          return;
+        }
+        state.distance = data;
+        const s = state.settings;
+        distanceBox.className = `distance ${data.zone}`;
+        distanceBox.textContent = data.zone === "free"
+          ? `± ${data.km} km — levering inbegrepen ✓`
+          : data.zone === "extra"
+            ? `± ${data.km} km — levering ${MM.euro(data.surcharge)} extra`
+            : `± ${data.km} km — dat is verder dan ${s.max_km ?? 30} km. Stuur gerust je aanvraag, dan bekijken we samen of het mogelijk is.`;
+        showPrice();
+      } catch (err) {
+        console.warn("Afstand niet berekend:", err);
+        distanceBox.className = "distance";
+        distanceBox.textContent = "";
+      }
+    });
     box.querySelector("[data-clear]").addEventListener("click", () => { state.selected = null; renderCalendar(); renderForm(); });
     box.querySelector("form").addEventListener("submit", submit);
     box.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -226,6 +266,8 @@ const Booking = (() => {
       end_date: iso(addDays(start, 2)),
       tipis,
       quoted_price: price ? Number(price) : null,
+      distance_km: state.distance ? state.distance.km : null,
+      delivery_surcharge: state.distance ? state.distance.surcharge : null,
       name: f.get("name").trim(),
       email: f.get("email").trim(),
       phone: f.get("phone").trim(),

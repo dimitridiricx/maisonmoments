@@ -194,6 +194,11 @@ nav.links a:hover::after,nav.links a[aria-current="page"]::after{width:100%;}
 .yn label{display:inline-flex;align-items:center;gap:6px;margin:4px 16px 0 0;font-size:14.5px;color:var(--espresso);cursor:pointer;}
 .consent{display:flex !important;gap:10px;align-items:flex-start;margin-top:20px !important;font-size:14.5px !important;color:var(--espresso) !important;}
 .consent input{margin-top:4px;}
+.distance{font-size:13.5px;margin-top:6px;min-height:1.2em;color:var(--muted-2);}
+.distance.free{color:#4F7A3A;}
+.distance.extra{color:#80581A;}
+.distance.out,.distance.warn{color:#B4462B;}
+.price-box b{white-space:normal;}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
 .booking-form .cta-btn{margin-top:14px;}
 .form-msg{margin-top:12px;font-size:14.5px;}
