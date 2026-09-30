@@ -156,7 +156,7 @@ const MM = {
             .map(x => ({ type: x.type, url: x.url, caption: x.caption, focusX: x.focus_x, focusY: x.focus_y }));
           const firstImage = own.find(x => x.type === "image");
           return {
-            slug: t.slug, concept: slugById[t.concept_id], ...shared(t),
+            id: t.id, slug: t.slug, concept: slugById[t.concept_id], ...shared(t),
             cover: t.cover_url || (firstImage && firstImage.url) || null,
             focusX: firstImage && firstImage.focusX, focusY: firstImage && firstImage.focusY,
             media: own

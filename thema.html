@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script src="assets/mm-data.js"></script>
+<script src="assets/mm-booking.js"></script>
 </head>
 <body>
 
@@ -148,7 +149,8 @@
         </div>`).join('')}
         <div class="panel full" id="beschikbaarheid">
           <h2>Beschikbaarheid</h2>
-          <div class="placeholder">📅 Hier komt de beschikbaarheidskalender met het aanvraagformulier.</div>
+          <p>Kies een weekend om een aanvraag te doen. Je aanvraag is nog geen reservatie: we bevestigen eerst de beschikbaarheid.</p>
+          <div id="booking"></div>
         </div>
       </section>`;
 
@@ -163,6 +165,8 @@
         btn.setAttribute('aria-current', 'true');
       });
     }
+
+    Booking.mount(document.getElementById('booking'), theme, concept);
   })();
 </script>
 
