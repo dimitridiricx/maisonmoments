@@ -52,7 +52,7 @@ function overview(r: Reservation): [string, string][] {
     ["Aantal tipi's", String(r.tipis)],
     ["Huurprijs", euro(r.quoted_price)],
     ["Levering", r.distance_km != null ? `± ${r.distance_km} km${Number(r.delivery_surcharge) > 0 ? ` (+${euro(r.delivery_surcharge)})` : " (inbegrepen)"}` : "wordt nog bevestigd"],
-    ["Totaal (indicatie)", total != null ? euro(total) : ""],
+    ["Totaalprijs", total != null ? euro(total) : ""],
     ["Naam", r.name],
     ["Telefoon", r.phone],
     ["E-mail", r.email],
@@ -94,7 +94,7 @@ function compose(event: "nieuw" | "bevestigd" | "geannuleerd", r: Reservation, s
       ...layout("Bedankt voor je aanvraag! 🤍", [
         `Dag ${first},`,
         "We hebben je aanvraag goed ontvangen. We bekijken de beschikbaarheid en planning, en nemen zo snel mogelijk contact met je op om alles te bevestigen.",
-        "Let op: dit is nog <b>geen definitieve reservatie</b>. Je ontvangt eerst een bevestiging van ons.",
+        "Let op: dit is nog <b>geen definitieve reservatie</b>. Je ontvangt eerst een bevestiging van ons. We bevestigen de definitieve prijs samen met je reservatie.",
       ], r),
     };
   }

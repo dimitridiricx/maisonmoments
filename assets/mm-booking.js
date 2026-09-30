@@ -146,7 +146,8 @@ const Booking = (() => {
             <select id="bTipis" name="tipis" required>
               ${choices.map(c => `<option value="${c.n}" data-price="${c.price ?? ""}">${MM.esc(c.label)}${c.price != null ? ` — ${MM.euro(c.price)}` : ""}</option>`).join("")}
             </select></div>
-          <div class="price-box"><span>Prijs</span><b id="bPrice"></b></div>
+          <div class="price-box"><span>Totaalprijs</span><b id="bPrice"></b>
+            <small>We bevestigen de definitieve prijs samen met je reservatie.</small></div>
         </div>
         <h4>Contactgegevens</h4>
         <div class="frow">

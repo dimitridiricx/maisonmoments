@@ -199,6 +199,7 @@ nav.links a:hover::after,nav.links a[aria-current="page"]::after{width:100%;}
 .distance.extra{color:#80581A;}
 .distance.out,.distance.warn{color:#B4462B;}
 .price-box b{white-space:normal;}
+.price-box small{font-size:12.5px;color:var(--muted-2);}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
 .booking-form .cta-btn{margin-top:14px;}
 .form-msg{margin-top:12px;font-size:14.5px;}
