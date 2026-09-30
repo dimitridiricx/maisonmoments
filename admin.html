@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
 <script src="assets/admin-catalog.js"></script>
+<script src="assets/admin-bookings.js"></script>
 <style>
   :root{
     --cream:#FBF6EC; --cream-deep:#F4EBDC; --espresso:#3A2E27;
@@ -95,6 +96,26 @@
   .prev-tile{aspect-ratio:1.56;border-radius:999px 999px 0 0;}
   .prev-gallery{aspect-ratio:4/3;border-radius:90px 90px 10px 10px;}
   .media-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  /* reservaties */
+  .res-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .res-item{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px;display:grid;gap:10px;}
+  .res-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start;}
+  .res-dates{font-family:'Fraunces',serif;font-size:17px;}
+  .res-what{font-size:14px;color:#6b5c4f;}
+  .res-status{font-size:12.5px;padding:4px 12px;border-radius:999px;font-weight:500;}
+  .st-new{background:#FBE1D8;color:#A2442B;}
+  .st-ok{background:#F8E6C4;color:#80581A;}
+  .st-paid{background:#E3EEDA;color:#4F7A3A;}
+  .st-off{background:var(--cream-deep);color:#8a7a6c;}
+  .res-grid{display:grid;grid-template-columns:1fr 1.3fr;gap:16px;font-size:14px;}
+  .res-grid a{color:var(--coral);}
+  .res-access{color:#5b4c40;}
+  .res-msg{margin:0;font-size:14px;color:#5b4c40;background:var(--cream);border-radius:10px;padding:8px 12px;white-space:pre-wrap;}
+  .res-created{font-size:12px;color:#8a7a6c;margin-right:auto;}
+  .period-row{display:grid;grid-template-columns:1.3fr 1fr 1fr 1.4fr auto;gap:10px;align-items:end;margin-bottom:10px;}
+  .period-row .row-actions{margin-top:0;}
+  select,input[type=date]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-family:'Jost',sans-serif;font-size:14px;background:var(--cream);color:var(--espresso);}
+  .help{display:block;font-size:12px;color:#8a7a6c;margin-top:4px;}
   .media-actions input[type=text]{flex:1;min-width:200px;}
   @media(max-width:680px){
     .wrap{padding:24px 16px 70px;}
@@ -102,6 +123,7 @@
     .mini-row{grid-template-columns:1fr 100px auto;}
     .addon-row{grid-template-columns:1fr 90px;}
     .focus-box{grid-template-columns:1fr;}
+    .res-grid,.period-row{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -136,6 +158,22 @@
   <div class="notice">
     Alle wijzigingen hieronder worden direct opgeslagen in de database en zijn meteen live op de website —
     er hoeft niets geüpload te worden.
+  </div>
+
+  <!-- RESERVATIES -->
+  <div class="panel">
+    <h2>Reservaties</h2>
+    <div class="sub">Aanvragen via de kalender op de themapagina's. Een aanvraag telt pas mee in de kalender zodra je ze bevestigt.</div>
+    <div id="reservationList"><div class="empty">Laden…</div></div>
+  </div>
+
+  <!-- BESCHIKBAARHEID -->
+  <div class="panel">
+    <h2>Beschikbaarheid</h2>
+    <div class="sub">Weekends (vrijdag tot zondag) zijn standaard boekbaar. Zet hier vakanties open of blokkeer weekends.</div>
+    <div id="bookingSettings"></div>
+    <h3 class="block-title">Periodes</h3>
+    <div id="periodList"></div>
   </div>
 
   <!-- CONCEPTEN & THEMA'S (themapagina's) -->
@@ -239,6 +277,11 @@
     }
     loadQuoteRequests();
     Catalog.load(document.getElementById('catalogList'));
+    Bookings.load({
+      requests: document.getElementById('reservationList'),
+      settings: document.getElementById('bookingSettings'),
+      periods: document.getElementById('periodList')
+    });
   }
 
   // Tekst uit de database altijd escapen voor ze in innerHTML komt.
