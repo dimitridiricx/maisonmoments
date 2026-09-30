@@ -51,22 +51,70 @@ const Bookings = (() => {
     return settings.total_tipis - Math.max(...data.map(d => d.booked));
   }
 
-  async function changeStatus(r, next, statusNode) {
+  const euro = n => `€${Number(n).toLocaleString("nl-BE", { maximumFractionDigits: 2 })}`;
+  const suggestedTotal = r => (r.quoted_price != null ? Number(r.quoted_price) + Number(r.delivery_surcharge || 0) : null);
+
+  // price = { distance_km, delivery_surcharge, final_price } zoals ingevuld in het prijsblok
+  async function changeStatus(r, next, statusNode, price) {
+    const update = { status: next };
     if (next === "bevestigd" && r.status === "nieuw") {
       const free = await freeTipis(r);
       if (free !== null && r.tipis > free &&
           !confirm(`Let op: er zijn nog maar ${Math.max(free, 0)} tipi's vrij in deze periode, deze aanvraag vraagt er ${r.tipis}. Toch bevestigen?`)) return;
+      if (price.final_price == null || price.final_price === "" || Number.isNaN(Number(price.final_price))) {
+        return setStatus(statusNode, "Vul eerst de definitieve totaalprijs in", true);
+      }
+      if (!confirm(`Bevestigen aan ${euro(price.final_price)}? De klant krijgt een bevestigingsmail met dit bedrag.`)) return;
+      // prijs en status samen opslaan, zodat de bevestigingsmail de juiste prijs bevat
+      Object.assign(update, {
+        final_price: Number(price.final_price),
+        distance_km: price.distance_km === "" || price.distance_km == null ? null : Number(price.distance_km),
+        delivery_surcharge: price.delivery_surcharge === "" || price.delivery_surcharge == null ? null : Number(price.delivery_surcharge)
+      });
     }
     if (["geweigerd", "geannuleerd"].includes(next) && !confirm(`Deze reservatie op "${STATUS[next].label.toLowerCase()}" zetten?`)) return;
     setStatus(statusNode, "Opslaan…");
-    const { error } = await supabaseClient.from("reservation_requests").update({ status: next }).eq("id", r.id);
+    const { error } = await supabaseClient.from("reservation_requests").update(update).eq("id", r.id);
     if (error) { console.error(error); return setStatus(statusNode, "Opslaan mislukt", true); }
-    r.status = next;
+    Object.assign(r, update);
     renderRequests();
+  }
+
+  // Prijsblok: afstand, toeslag en definitieve prijs (aanpasbaar zolang niet bevestigd)
+  function priceBlock(r, price, statusNode) {
+    const locked = r.status !== "nieuw";
+    const input = (key, label, step) => {
+      const i = el("input", { type: "number", min: 0, step, disabled: locked });
+      i.value = price[key] ?? "";
+      i.addEventListener("input", () => {
+        price[key] = i.value;
+        // toeslag gewijzigd -> voorgestelde totaalprijs mee aanpassen, tenzij zelf ingevuld
+        if (key === "delivery_surcharge" && !price._manualTotal && r.quoted_price != null) {
+          price.final_price = Number(r.quoted_price) + Number(i.value || 0);
+          totalInput.value = price.final_price;
+        }
+        if (key === "final_price") price._manualTotal = true;
+      });
+      return el("div", {}, el("label", { text: label }), i);
+    };
+    const total = input("final_price", "Definitieve totaalprijs (€)", 1);
+    const totalInput = total.querySelector("input");
+    return el("div", { class: "res-price" },
+      input("distance_km", "Afstand (km)", 0.1),
+      input("delivery_surcharge", "Leveringstoeslag (€)", 1),
+      total,
+      el("small", { class: "help", text: locked
+        ? "Vastgelegd bij de bevestiging."
+        : `Huur volgens formulier: ${r.quoted_price != null ? euro(r.quoted_price) : "—"}. Pas aan waar nodig; dit bedrag komt in de bevestigingsmail.` }));
   }
 
   function requestCard(r) {
     const statusNode = el("span", { class: "status" });
+    const price = {
+      distance_km: r.distance_km,
+      delivery_surcharge: r.delivery_surcharge,
+      final_price: r.final_price ?? suggestedTotal(r)
+    };
     const note = el("textarea", { rows: 2, placeholder: "Interne notitie (enkel zichtbaar voor jou), bv. afstand, afspraken…" });
     note.value = r.admin_note || "";
     note.addEventListener("change", async () => {
@@ -91,7 +139,7 @@ const Bookings = (() => {
       el("div", { class: "res-top" },
         el("div", {},
           el("div", { class: "res-dates", text: `${niceDate(r.start_date)} → ${niceDate(r.end_date)}` }),
-          el("div", { class: "res-what", text: `${r.theme_name || "Thema onbekend"} · ${r.tipis} tipi's${r.quoted_price != null ? ` · €${r.quoted_price}` : ""}` })),
+          el("div", { class: "res-what", text: `${r.theme_name || "Thema onbekend"} · ${r.tipis} tipi's${r.final_price != null ? ` · ${euro(r.final_price)}` : r.quoted_price != null ? ` · ${euro(r.quoted_price)} huur` : ""}` })),
         el("span", { class: `res-status ${st.cls}`, text: st.label })),
       el("div", { class: "res-grid" },
         el("div", {},
@@ -106,12 +154,13 @@ const Bookings = (() => {
           r.pickup_time_pref && el("div", { text: `Ophaling: ${r.pickup_time_pref}` }))),
       r.access_notes && el("p", { class: "res-msg", text: `Bereikbaarheid: ${r.access_notes}` }),
       r.message && el("p", { class: "res-msg", text: `Bericht: ${r.message}` }),
+      priceBlock(r, price, statusNode),
       note,
       el("div", { class: "row-actions" },
         el("span", { class: "res-created", text: `Aangevraagd op ${new Date(r.created_at).toLocaleString("nl-BE")}` }),
         statusNode,
         ...actions.map(([next, label, cls]) => el("button", { class: `btn ${cls} btn-sm`, type: "button", text: label,
-          onclick: () => changeStatus(r, next, statusNode) })))
+          onclick: () => changeStatus(r, next, statusNode, price) })))
     );
   }
 

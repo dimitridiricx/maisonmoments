@@ -45,12 +45,14 @@ async function settings() {
 
 // Overzicht van de aanvraag, als [label, waarde]-paren
 function overview(r: Reservation): [string, string][] {
-  const total = r.quoted_price != null ? Number(r.quoted_price) + Number(r.delivery_surcharge || 0) : null;
+  // na bevestiging: de definitieve prijs van de beheerder; anders huur + berekende toeslag
+  const total = r.final_price != null ? Number(r.final_price)
+    : r.quoted_price != null ? Number(r.quoted_price) + Number(r.delivery_surcharge || 0) : null;
   return [
     ["Thema", r.theme_name],
     ["Periode", `${niceDate(r.start_date)} tot ${niceDate(r.end_date)}`],
     ["Aantal tipi's", String(r.tipis)],
-    ["Huurprijs", euro(r.quoted_price)],
+    ["Huurprijs", r.final_price != null ? "" : euro(r.quoted_price)],   // na bevestiging telt enkel de totaalprijs
     ["Levering", r.distance_km != null ? `± ${r.distance_km} km${Number(r.delivery_surcharge) > 0 ? ` (+${euro(r.delivery_surcharge)})` : " (inbegrepen)"}` : "wordt nog bevestigd"],
     ["Totaalprijs", total != null ? euro(total) : ""],
     ["Naam", r.name],
@@ -75,14 +77,14 @@ function layout(title: string, paragraphs: string[], r: Reservation) {
   <div style="max-width:600px;margin:0 auto;padding:28px 20px;">
     <p style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#B98D5D;margin:0 0 6px;">Maison Moments</p>
     <h1 style="font-family:Georgia,serif;font-weight:normal;font-size:24px;margin:0 0 18px;">${esc(title)}</h1>
-    ${paragraphs.map(p => `<p style="font-size:15px;line-height:1.6;margin:0 0 14px;">${p}</p>`).join("")}
+    ${paragraphs.filter(Boolean).map(p => `<p style="font-size:15px;line-height:1.6;margin:0 0 14px;">${p}</p>`).join("")}
     <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;font-size:14px;margin-top:10px;">
       ${rows.map(([k, v]) => `<tr><td style="padding:8px 14px;color:#6b5c4f;border-bottom:1px solid #eee;width:45%;">${esc(k)}</td><td style="padding:8px 14px;border-bottom:1px solid #eee;">${esc(v).replace(/\n/g, "<br>")}</td></tr>`).join("")}
     </table>
     <p style="font-size:13px;color:#8a7a6c;margin-top:22px;">Vragen? Antwoord gewoon op deze mail of mail naar ${esc(env("MAIL_COPY_TO"))}.</p>
   </div></body></html>`;
   const strip = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-  const text = [title, "", ...paragraphs.map(strip), "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
+  const text = [title, "", ...paragraphs.filter(Boolean).map(strip), "", ...rows.map(([k, v]) => `${k}: ${v}`)].join("\n");
   return { html, text };
 }
 
@@ -100,14 +102,18 @@ function compose(event: "nieuw" | "bevestigd" | "geannuleerd", r: Reservation, s
   }
   if (event === "bevestigd") {
     const pay = s.payment_instructions ? esc(s.payment_instructions).replace(/\n/g, "<br>") : "We bezorgen je de betaalgegevens zo snel mogelijk.";
+    const deposit = Number(s.deposit_amount ?? 40);
+    const total = r.final_price != null ? Number(r.final_price) : null;
+    const rest = total != null ? Math.max(0, total - deposit) : null;
     return {
       subject: `Je reservatie is bevestigd — ${r.theme_name}, ${niceDate(r.start_date)}`,
       ...layout("Je reservatie is bevestigd 🎉", [
         `Dag ${first},`,
         "Goed nieuws: we hebben je weekend voor jou vastgelegd!",
-        `Om de reservatie definitief te maken, vragen we een <b>voorschot van ${euro(s.deposit_amount ?? 40)}</b> binnen <b>${esc(s.deposit_days ?? 3)} dagen</b>. Het voorschot wordt verrekend met de huurprijs.`,
+        total != null ? `De totaalprijs bedraagt <b>${euro(total)}</b>, levering, opbouw, styling, afbraak en ophaling inbegrepen.` : "",
+        `Om de reservatie definitief te maken, vragen we een <b>voorschot van ${euro(deposit)}</b> binnen <b>${esc(s.deposit_days ?? 3)} dagen</b>. Het voorschot wordt verrekend met de totaalprijs.`,
         pay,
-        `Het resterende bedrag en de waarborg van ${euro(s.guarantee_amount ?? 100)} betaal je bij levering, vóór de opbouw, via Payconiq of onmiddellijke overschrijving. De waarborg krijg je binnen 5 werkdagen terug als alles volledig en onbeschadigd is.`,
+        `${rest != null ? `Het resterende bedrag van <b>${euro(rest)}</b>` : "Het resterende bedrag"} en de waarborg van <b>${euro(s.guarantee_amount ?? 100)}</b> betaal je bij levering, vóór de opbouw, via Payconiq of onmiddellijke overschrijving. De waarborg krijg je binnen 5 werkdagen terug als alles volledig en onbeschadigd is.`,
         "Zorg op de dag van de levering voor parkeergelegenheid voor de deur en een vrije, propere ruimte (ongeveer 1,5 m² per tipi).",
       ], r),
     };
