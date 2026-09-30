@@ -5,9 +5,10 @@
 //  -> { "km": 12.4, "zone": "free" | "extra" | "out", "surcharge": 0 }
 //
 // Het vertrekpunt staat enkel als geheim in Supabase (ORIGIN_LAT/ORIGIN_LNG)
-// en wordt nooit teruggestuurd. Adressen worden omgezet via OpenStreetMap
-// (Nominatim); hun gebruiksregels vragen een herkenbare User-Agent en
-// geen zoekopdracht per toetsaanslag (de website vraagt pas na invullen).
+// en wordt nooit teruggestuurd. Adressen worden omgezet via Photon of, als
+// reserve, Nominatim (beide OpenStreetMap); hun gebruiksregels vragen een
+// herkenbare User-Agent en geen zoekopdracht per toetsaanslag (de website
+// vraagt pas na het invullen van het adres).
 //
 // Geheimen: ORIGIN_LAT, ORIGIN_LNG, ALLOWED_ORIGINS (komma-gescheiden),
 //           SUPABASE_URL en SUPABASE_ANON_KEY (automatisch aanwezig).
@@ -35,6 +36,35 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 +
     Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(a));
+}
+
+const USER_AGENT = "MaisonMoments-reservaties/1.0 (info@maisonmoments.be)";
+
+// Adres -> coördinaten. Eerst Photon (OpenStreetMap-gegevens, blokkeert
+// cloudservers niet), anders Nominatim. Beperkt tot België.
+async function geocode(address: string): Promise<{ lat: number; lon: number } | null> {
+  const errors: string[] = [];
+  try {
+    const q = new URLSearchParams({ q: address, limit: "1", bbox: "2.5,49.45,6.45,51.55" });
+    const res = await fetch(`https://photon.komoot.io/api/?${q}`, { headers: { "User-Agent": USER_AGENT } });
+    if (!res.ok) throw new Error(`Photon ${res.status}`);
+    const feature = (await res.json()).features?.find((f: any) => f.properties?.countrycode === "BE");
+    if (!feature) return null;
+    const [lon, lat] = feature.geometry.coordinates;
+    return { lat: Number(lat), lon: Number(lon) };
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  try {
+    const q = new URLSearchParams({ q: address, format: "jsonv2", limit: "1", countrycodes: "be" });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, { headers: { "User-Agent": USER_AGENT, "Accept-Language": "nl" } });
+    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    const hits = await res.json();
+    return hits.length ? { lat: Number(hits[0].lat), lon: Number(hits[0].lon) } : null;
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+  throw new Error(`Geen adresdienst bereikbaar: ${errors.join("; ")}`);
 }
 
 async function settings() {
@@ -67,15 +97,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const q = new URLSearchParams({ q: address, format: "jsonv2", limit: "1", countrycodes: "be" });
-    const geo = await fetch(`https://nominatim.openstreetmap.org/search?${q}`, {
-      headers: { "User-Agent": "MaisonMoments-reservaties/1.0 (info@maisonmoments.be)", "Accept-Language": "nl" },
-    });
-    if (!geo.ok) throw new Error(`Nominatim ${geo.status}`);
-    const hits = await geo.json();
-    if (!hits.length) return json({ found: false }, 200, origin);
+    const point = await geocode(address);
+    if (!point) return json({ found: false }, 200, origin);
 
-    const km = Math.round(haversine(originLat, originLng, Number(hits[0].lat), Number(hits[0].lon)) * 10) / 10;
+    const km = Math.round(haversine(originLat, originLng, point.lat, point.lon) * 10) / 10;
     const s = await settings();
     const zone = km <= s.free_km ? "free" : km <= s.max_km ? "extra" : "out";
     return json({ found: true, km, zone, surcharge: zone === "extra" ? Number(s.distance_surcharge) : 0 }, 200, origin);
