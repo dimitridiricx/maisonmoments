@@ -110,7 +110,7 @@
 
       <section class="detail-hero">
         <div>
-          <div class="gallery-main" id="galleryMain" style="${media.length ? '' : MM.tileBackground(theme)}">
+          <div class="gallery-main" id="galleryMain" style="${MM.tileBackground({ ...theme, cover: null })}">
             ${media.length ? mediaHtml(media[0], theme) : MM.esc(theme.emoji)}
           </div>
           ${media.length > 1 ? `<div class="gallery-thumbs" id="galleryThumbs">${media.map((m, i) => thumbHtml(m, i, theme)).join('')}</div>` : ''}

@@ -187,8 +187,10 @@ const MM = {
 
   // Achtergrond voor een tegel: foto als die er is, anders het kleurverloop.
   tileBackground(item) {
-    if (item.cover) return `background-image:url('${encodeURI(item.cover).replace(/'/g, "%27")}');background-position:${MM.focus(item)}`;
-    return `background:linear-gradient(140deg, ${MM.color(item.colorFrom, "#E9DCC9")}, ${MM.color(item.colorTo, "#D9BD97")})`;
+    const gradient = `linear-gradient(140deg, ${MM.color(item.colorFrom, "#E9DCC9")}, ${MM.color(item.colorTo, "#D9BD97")})`;
+    // kleurverloop onder de foto: zichtbaar zolang de foto nog laadt (of niet laadt)
+    if (item.cover) return `background-image:url('${encodeURI(item.cover).replace(/'/g, "%27")}'), ${gradient};background-position:${MM.focus(item)}, center`;
+    return `background:${gradient}`;
   },
 
   // Focuspunt van een foto als CSS-positie ("50% 30%"); standaard het midden.
