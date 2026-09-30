@@ -37,7 +37,7 @@ header{
 }
 .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;max-width:1180px;margin:0 auto;}
 .brand{display:flex;align-items:center;gap:10px;}
-.brand img{height:46px;width:auto;}
+.brand img{height:46px;width:auto;mix-blend-mode:multiply;}   /* wit van het logo valt weg */
 nav.links{display:flex;gap:34px;font-size:15px;}
 nav.links a{position:relative;padding:4px 0;}
 nav.links a::after{content:"";position:absolute;left:0;bottom:-2px;width:0;height:1.5px;background:var(--coral);transition:width .25s ease;}

@@ -31,7 +31,9 @@
     display:flex;align-items:flex-end;justify-content:center;
     box-shadow:0 30px 60px -25px rgba(58,46,39,0.35);
   }
-  .hero-arch img{width:64%;margin-bottom:8%;}
+  /* multiply: de witte achtergrond van het logo valt weg tegen het kleurverloop */
+  .hero-arch{align-items:center;}
+  .hero-arch img{width:72%;mix-blend-mode:multiply;}
 
   /* concepten */
   .concepts{padding:84px 0 20px;background:var(--cream-deep);}
@@ -55,7 +57,7 @@
   /* over ons */
   .about{padding:20px 0 92px;}
   .about-box{background:var(--cream-deep);border-radius:32px;padding:52px;display:grid;grid-template-columns:1fr 1.3fr;gap:48px;align-items:center;}
-  .about-box img{width:100%;max-width:320px;margin:0 auto;border-radius:16px;}
+  .about-box img{width:100%;max-width:340px;margin:0 auto;mix-blend-mode:multiply;}
   .about h2{font-size:34px;margin-bottom:16px;}
   .about p{color:var(--muted);margin:0;}
   .about-list{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px;}
