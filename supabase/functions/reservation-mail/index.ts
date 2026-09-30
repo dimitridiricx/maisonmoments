@@ -10,7 +10,7 @@
 //
 // Geheimen (Supabase -> Edge Functions -> Secrets):
 //   SMTP_HOST, SMTP_PORT (465), SMTP_USER, SMTP_PASS,
-//   MAIL_FROM (reservaties@maisonmoments.be), MAIL_COPY_TO (info@maisonmoments.be),
+//   MAIL_FROM (info@maisonmoments.be, moet de SMTP-mailbox zijn), MAIL_COPY_TO (info@maisonmoments.be),
 //   WEBHOOK_SECRET (zelfde waarde als de header x-webhook-secret in de webhook)
 // ------------------------------------------------------------------
 import nodemailer from "npm:nodemailer@6.9.16";
