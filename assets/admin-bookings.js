@@ -4,7 +4,7 @@
    - Reservatie-aanvragen opvolgen: bevestigen, voorschot ontvangen,
      weigeren of annuleren. Enkel 'bevestigd' en 'voorschot betaald'
      tellen mee in de kalender op de website.
-   - Instellingen: aantal tipi's, minimum per boeking, termijnen.
+   - Instellingen: termijnen en levering. Voorraad per concept staat bij de concepten (admin-catalog).
    - Periodes: vakanties openzetten of weekends blokkeren.
 
    Alle tekst gaat via .value / .textContent in de pagina (geen innerHTML),
@@ -45,10 +45,14 @@ const Bookings = (() => {
   const setStatus = (node, text, isError) => { node.textContent = text; node.className = isError ? "status err" : "status"; };
 
   /* ---------------- reservaties ---------------- */
+  // Vrije voorraad van het concept van deze aanvraag, niet van de andere concepten.
   async function freeTipis(r) {
-    const { data, error } = await supabaseClient.rpc("get_availability", { from_date: r.start_date, to_date: r.end_date });
-    if (error || !data) return null;
-    return settings.total_tipis - Math.max(...data.map(d => d.booked));
+    const [concept, avail] = await Promise.all([
+      supabaseClient.from("concepts").select("capacity").eq("id", r.concept_id).maybeSingle(),
+      supabaseClient.rpc("get_availability", { p_concept: r.concept_id, from_date: r.start_date, to_date: r.end_date })
+    ]);
+    if (concept.error || !concept.data || avail.error || !avail.data) return null;
+    return concept.data.capacity - Math.max(...avail.data.map(d => d.booked));
   }
 
   const euro = n => `€${Number(n).toLocaleString("nl-BE", { maximumFractionDigits: 2 })}`;
@@ -60,7 +64,7 @@ const Bookings = (() => {
     if (next === "bevestigd" && r.status === "nieuw") {
       const free = await freeTipis(r);
       if (free !== null && r.tipis > free &&
-          !confirm(`Let op: er zijn nog maar ${Math.max(free, 0)} tipi's vrij in deze periode, deze aanvraag vraagt er ${r.tipis}. Toch bevestigen?`)) return;
+          !confirm(`Let op: er zijn nog maar ${Math.max(free, 0)} ${r.unit || "tipi's"} vrij in deze periode, deze aanvraag vraagt er ${r.tipis}. Toch bevestigen?`)) return;
       if (price.final_price == null || price.final_price === "" || Number.isNaN(Number(price.final_price))) {
         return setStatus(statusNode, "Vul eerst de definitieve totaalprijs in", true);
       }
@@ -139,7 +143,7 @@ const Bookings = (() => {
       el("div", { class: "res-top" },
         el("div", {},
           el("div", { class: "res-dates", text: `${niceDate(r.start_date)} → ${niceDate(r.end_date)}` }),
-          el("div", { class: "res-what", text: `${r.theme_name || "Thema onbekend"} · ${r.tipis} tipi's${r.final_price != null ? ` · ${euro(r.final_price)}` : r.quoted_price != null ? ` · ${euro(r.quoted_price)} huur` : ""}` })),
+          el("div", { class: "res-what", text: `${r.theme_name || "Thema onbekend"} · ${r.tipis} ${r.unit || "tipi's"}${r.final_price != null ? ` · ${euro(r.final_price)}` : r.quoted_price != null ? ` · ${euro(r.quoted_price)} huur` : ""}` })),
         el("span", { class: `res-status ${st.cls}`, text: st.label })),
       el("div", { class: "res-grid" },
         el("div", {},
@@ -202,13 +206,11 @@ const Bookings = (() => {
     const payment = el("textarea", { rows: 3, placeholder: "bv. Rekeningnummer BE00 0000 0000 0000 op naam van …, met vermelding van je naam en datum. Of via Payconiq." });
     payment.value = settings.payment_instructions || "";
     payment.addEventListener("input", () => { settings.payment_instructions = payment.value; });
-    const fields = ["total_tipis", "min_tipis", "months_ahead", "min_days_notice",
+    const fields = ["months_ahead", "min_days_notice",
       ...(hasMailFields ? ["free_km", "max_km", "distance_surcharge", "deposit_amount", "deposit_days", "guarantee_amount", "payment_instructions"] : [])];
 
     els.settings.replaceChildren(
       el("div", { class: "price-grid" },
-        num("Totaal aantal tipi's", "total_tipis", "Een weekend is volzet als de bevestigde reservaties samen dit aantal bereiken."),
-        num("Minimum tipi's per boeking", "min_tipis"),
         num("Hoeveel maanden vooruit boekbaar", "months_ahead"),
         num("Minimum dagen op voorhand", "min_days_notice", "Weekends die dichterbij liggen, kunnen niet meer aangevraagd worden.")),
       hasMailFields && el("h3", { class: "block-title", text: "Levering en betaling" }),
@@ -218,7 +220,7 @@ const Bookings = (() => {
         num("Toeslag tussen beide afstanden (€)", "distance_surcharge"),
         num("Voorschot (€)", "deposit_amount"),
         num("Voorschot betalen binnen (dagen)", "deposit_days"),
-        num("Waarborg (€)", "guarantee_amount")),
+        num("Standaard waarborg (€, als concept en thema er geen hebben)", "guarantee_amount")),
       hasMailFields && el("div", {}, el("label", { text: "Betaalgegevens voor het voorschot (komen in de bevestigingsmail)" }), payment),
       el("div", { class: "row-actions" }, statusNode,
         el("button", { class: "btn btn-coral btn-sm", type: "button", text: "Instellingen opslaan", onclick: async () => {

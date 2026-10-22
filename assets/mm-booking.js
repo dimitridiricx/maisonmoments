@@ -44,15 +44,19 @@ const Booking = (() => {
     return result;
   }
 
-  // Tipi-opties uit de prijstabel ("2 tipi's" -> 2).
+  // Opties uit de prijstabel ("2 tipi's" -> 2), binnen min/max per boeking en wat vrij is.
   function tipiChoices(free) {
     const rows = (state.pricing || [])
       .map(p => ({ n: parseInt(p.label, 10), price: p.price, label: p.label }))
       .filter(p => Number.isFinite(p.n));
     const min = state.settings.min_tipis;
-    if (rows.length) return rows.filter(p => p.n >= min && p.n <= free);
-    return Array.from({ length: Math.max(0, free - min + 1) }, (_, i) => ({ n: min + i, price: null, label: `${min + i} tipi's` }));
+    const max = Math.min(free, state.settings.max_tipis);
+    if (rows.length) return rows.filter(p => p.n >= min && p.n <= max);
+    return Array.from({ length: Math.max(0, max - min + 1) }, (_, i) => ({ n: min + i, price: null, label: `${min + i} ${state.unit}` }));
   }
+
+  // Styling-prijs: de lage prijs tot en met de drempel, daarboven de hoge prijs.
+  const stylingPrice = (styling, units) => (units <= styling.threshold ? styling.low : styling.high);
 
   /* ---------------- kalender tekenen ---------------- */
   function renderCalendar() {
@@ -100,7 +104,7 @@ const Booking = (() => {
         action = 'data-closed="1"';
       }
       const aria = own && (ownKey || !own.isWeekend)
-        ? `${nice(date)}: ${own.full ? "volzet" : own.free + " tipi's vrij"}`
+        ? `${nice(date)}: ${own.full ? "volzet" : own.free + " " + state.unit + " vrij"}`
         : nice(date);
       cells.push(`<button type="button" class="${classes.join(" ")}" ${action} aria-label="${aria}" ${action ? "" : "tabindex=\"-1\""}>
         <span class="cal-num">${d}</span>${label ? `<span class="cal-label">${label}</span>` : ""}</button>`);
@@ -137,15 +141,21 @@ const Booking = (() => {
     hint.textContent = "";
     box.hidden = false;
     box.innerHTML = `
-      <h3>Aanvraag voor ${MM.esc(state.theme.name)}</h3>
-      <p class="picked">📅 <b>${nice(start)}</b> tot <b>${nice(end)}</b> · nog ${opt.free} tipi's vrij
+      <h3>Aanvraag voor ${MM.esc(state.theme ? state.theme.name : state.concept.name)}</h3>
+      <p class="picked">📅 <b>${nice(start)}</b> tot <b>${nice(end)}</b> · nog ${opt.free} ${state.unit} vrij
         <button type="button" class="link-btn" data-clear>Andere datum</button></p>
       <form novalidate>
         <div class="frow">
-          <div><label for="bTipis">Aantal tipi's *</label>
+          <div><label for="bTipis">Aantal ${MM.esc(state.unit)} *</label>
             <select id="bTipis" name="tipis" required>
               ${choices.map(c => `<option value="${c.n}" data-price="${c.price ?? ""}">${MM.esc(c.label)}${c.price != null ? ` — ${MM.euro(c.price)}` : ""}</option>`).join("")}
             </select></div>
+          ${state.styling ? `<div><label for="bStyling">${MM.esc(state.styling.label)} *</label>
+            <select id="bStyling" name="styling" required>
+              <option value="" selected disabled>Kies…</option>
+              <option value="no">Zonder styling</option>
+              <option value="yes">Met styling</option>
+            </select></div>` : ""}
           <div class="price-box"><span>Totaalprijs</span><b id="bPrice"></b>
             <small>We bevestigen de definitieve prijs samen met je reservatie.</small></div>
         </div>
@@ -186,14 +196,23 @@ const Booking = (() => {
       </form>`;
 
     const select = box.querySelector("#bTipis");
+    const stylingSelect = box.querySelector("#bStyling");
     const showPrice = () => {
       const p = select.selectedOptions[0]?.dataset.price;
       const extra = state.distance?.surcharge || 0;
+      // de styling-prijs hangt af van het aantal tipi's: die staat in de keuze zelf vermeld
+      let styleAmount = 0;
+      if (state.styling) {
+        const amount = stylingPrice(state.styling, Number(select.value));
+        stylingSelect.querySelector('option[value="yes"]').textContent = `Met styling (+${MM.euro(amount)})`;
+        styleAmount = stylingSelect.value === "yes" ? amount : 0;
+      }
       box.querySelector("#bPrice").textContent = p
-        ? MM.euro(Number(p) + extra) + (extra ? ` (incl. ${MM.euro(extra)} levering)` : "")
+        ? MM.euro(Number(p) + styleAmount + extra) + (extra ? ` (incl. ${MM.euro(extra)} levering)` : "")
         : "op aanvraag";
     };
     select.addEventListener("change", showPrice);
+    stylingSelect?.addEventListener("change", showPrice);
     showPrice();
 
     // afstand berekenen zodra het adres ingevuld is (niet bij elke toets)
@@ -260,13 +279,19 @@ const Booking = (() => {
     const start = parse(state.selected);
     const tipis = Number(f.get("tipis"));
     const price = form.querySelector("#bTipis").selectedOptions[0]?.dataset.price;
+    const styled = state.styling ? f.get("styling") === "yes" : false;
+    const stylingAmount = styled ? stylingPrice(state.styling, tipis) : null;
     const payload = {
-      theme_id: state.theme.id || null,
-      theme_name: state.theme.name,
+      concept_id: state.concept.id || null,
+      theme_id: state.theme?.id || null,
+      theme_name: state.theme ? state.theme.name : "",
       start_date: state.selected,
       end_date: iso(addDays(start, 2)),
       tipis,
-      quoted_price: price ? Number(price) : null,
+      // huurprijs inclusief styling, zodat mail en admin de juiste totaalprijs tonen
+      quoted_price: price ? Number(price) + (stylingAmount || 0) : null,
+      styling: styled,
+      styling_price: stylingAmount,
       distance_km: state.distance ? state.distance.km : null,
       delivery_surcharge: state.distance ? state.distance.surcharge : null,
       name: f.get("name").trim(),
@@ -303,10 +328,20 @@ const Booking = (() => {
   }
 
   /* ---------------- opstarten ---------------- */
+  // Styling-config van het thema, anders van het concept. null = geen styling-keuze.
+  function stylingOf(theme, concept) {
+    const threshold = MM.resolve(theme, concept, "stylingThreshold");
+    const low = MM.resolve(theme, concept, "stylingPriceLow");
+    if (threshold == null || low == null) return null;
+    const high = MM.resolve(theme, concept, "stylingPriceHigh") ?? low;
+    return { threshold, low, high, label: MM.resolve(theme, concept, "stylingLabel") || "Opbouw & styling" };
+  }
+
+  // theme is null voor concepten zonder thema's (has_themes = false).
   async function mount(root, theme, concept) {
     root.innerHTML = `
       <div class="cal-legend">
-        <span><i class="dot free"></i>Vrij</span><span><i class="dot partial"></i>Nog enkele tipi's</span>
+        <span><i class="dot free"></i>Vrij</span><span><i class="dot partial"></i>Beperkt beschikbaar</span>
         <span><i class="dot full"></i>Volzet</span><span><i class="dot holiday"></i>Vakantie</span>
       </div>
       <div class="cal"><div class="placeholder">Kalender laden…</div></div>
@@ -324,11 +359,21 @@ const Booking = (() => {
       const { data: settings, error: e1 } = await supabaseClient.from("booking_settings").select("*").eq("id", 1).maybeSingle();
       if (e1 || !settings) throw e1 || new Error("geen instellingen");
       const until = new Date(today.getFullYear(), today.getMonth() + settings.months_ahead + 1, 0);
-      const { data: rows, error: e2 } = await supabaseClient.rpc("get_availability", { from_date: iso(today), to_date: iso(addDays(until, 2)) });
+      const { data: rows, error: e2 } = await supabaseClient.rpc("get_availability", {
+        p_concept: concept.id, from_date: iso(today), to_date: iso(addDays(until, 2))
+      });
       if (e2) throw e2;
+      // De voorraad, boekingsgrootte en eenheid komen van het concept, niet van de globale instellingen.
       state = {
-        root, theme, today, settings,
+        root, theme, concept, unit: concept.capacityUnit || "tipi's", today,
+        settings: {
+          ...settings,
+          total_tipis: concept.capacity,
+          min_tipis: concept.bookingMin,
+          max_tipis: concept.bookingMax
+        },
         pricing: MM.resolve(theme, concept, "pricing"),
+        styling: stylingOf(theme, concept),
         days: new Map(rows.map(r => [r.day, r])),
         month: new Date(today.getFullYear(), today.getMonth(), 1),
         lastMonth: new Date(until.getFullYear(), until.getMonth(), 1),

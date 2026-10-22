@@ -51,8 +51,9 @@ function overview(r: Reservation): [string, string][] {
   return [
     ["Thema", r.theme_name],
     ["Periode", `${niceDate(r.start_date)} tot ${niceDate(r.end_date)}`],
-    ["Aantal tipi's", String(r.tipis)],
+    [`Aantal ${r.unit || "tipi's"}`, String(r.tipis)],
     ["Huurprijs", r.final_price != null ? "" : euro(r.quoted_price)],   // na bevestiging telt enkel de totaalprijs
+    ["Styling", r.styling ? `ja (${euro(r.styling_price)})` : ""],
     ["Levering", r.distance_km != null ? `± ${r.distance_km} km${Number(r.delivery_surcharge) > 0 ? ` (+${euro(r.delivery_surcharge)})` : " (inbegrepen)"}` : "wordt nog bevestigd"],
     ["Totaalprijs", total != null ? euro(total) : ""],
     ["Naam", r.name],
@@ -113,8 +114,8 @@ function compose(event: "nieuw" | "bevestigd" | "geannuleerd", r: Reservation, s
         total != null ? `De totaalprijs bedraagt <b>${euro(total)}</b>, levering, opbouw, styling, afbraak en ophaling inbegrepen.` : "",
         `Om de reservatie definitief te maken, vragen we een <b>voorschot van ${euro(deposit)}</b> binnen <b>${esc(s.deposit_days ?? 3)} dagen</b>. Het voorschot wordt verrekend met de totaalprijs.`,
         pay,
-        `${rest != null ? `Het resterende bedrag van <b>${euro(rest)}</b>` : "Het resterende bedrag"} en de waarborg van <b>${euro(s.guarantee_amount ?? 100)}</b> betaal je bij levering, vóór de opbouw, via Payconiq of onmiddellijke overschrijving. De waarborg krijg je binnen 5 werkdagen terug als alles volledig en onbeschadigd is.`,
-        "Zorg op de dag van de levering voor parkeergelegenheid voor de deur en een vrije, propere ruimte (ongeveer 1,5 m² per tipi).",
+        `${rest != null ? `Het resterende bedrag van <b>${euro(rest)}</b>` : "Het resterende bedrag"} en de waarborg van <b>${euro(r.guarantee_amount ?? s.guarantee_amount ?? 100)}</b> betaal je bij levering, vóór de opbouw, via Payconiq of onmiddellijke overschrijving. De waarborg krijg je binnen 5 werkdagen terug als alles volledig en onbeschadigd is.`,
+        `Zorg op de dag van de levering voor parkeergelegenheid voor de deur en een vrije, propere ruimte${r.unit === "tipi's" || !r.unit ? " (ongeveer 1,5 m² per tipi)" : ""}.`,
       ], r),
     };
   }

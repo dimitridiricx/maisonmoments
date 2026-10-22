@@ -39,6 +39,7 @@
     <nav>
       <a href="themas.html">Thema's</a>
       <a href="site-volledig.html#contact">Contact</a>
+      <a class="ig-link" href="https://www.instagram.com/maison.moments.keerbergen/" target="_blank" rel="noopener" aria-label="Maison Moments op Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg>Volg ons op Instagram</a>
     </nav>
   </div>
 </footer>
@@ -79,8 +80,17 @@
   (async () => {
     const { concepts, themes } = await MM.loadCatalog();
     const main = document.getElementById('content');
-    const theme = themes.find(t => t.slug === MM.param('t'));
-    const concept = theme && concepts.find(c => c.slug === theme.concept);
+    let theme = themes.find(t => t.slug === MM.param('t'));
+    let concept = theme ? concepts.find(c => c.slug === theme.concept) : concepts.find(c => c.slug === MM.param('c') && !c.hasThemes);
+
+    // Concept zonder thema's (bv. movie nights): het concept zelf is het "thema" op deze pagina.
+    if (!theme && concept) {
+      theme = {
+        id: null, name: concept.name, emoji: concept.emoji, description: concept.description,
+        media: concept.media && concept.media.length ? concept.media
+          : concept.cover ? [{ type: 'image', url: concept.cover, caption: concept.name, focusX: concept.focusX, focusY: concept.focusY }] : []
+      };
+    }
 
     if (!theme || !concept) {
       main.innerHTML = `
@@ -97,6 +107,18 @@
     const pricing = get('pricing') || [];
     const included = get('included') || [];
     const infoSections = get('infoSections') || [];
+    // styling-prijzen als extra rijen in de prijstabel (zelfde bedragen als in het boekingsformulier)
+    const stylingLabel = get('stylingLabel') || 'Opbouw & styling';
+    const stylingUnit = concept.capacityUnit || "tipi's";
+    // enkel de rijen die bij het maximum per boeking passen: bij max. 1 is "vanaf 2" zinloos
+    const stylingThreshold = get('stylingThreshold');
+    const stylingMax = concept.bookingMax ?? 1;
+    const stylingRows = stylingThreshold != null && get('stylingPriceLow') != null ? [
+      [`${stylingLabel} tot ${Math.min(stylingThreshold, stylingMax)} ${stylingUnit}`, get('stylingPriceLow')],
+      ...(stylingMax > stylingThreshold
+        ? [[`${stylingLabel} vanaf ${stylingThreshold + 1} ${stylingUnit}`, get('stylingPriceHigh') ?? get('stylingPriceLow')]]
+        : [])
+    ] : [];
 
     main.innerHTML = `
       <div class="page-head" style="padding-bottom:24px;">
@@ -128,12 +150,13 @@
       </section>
 
       <section class="panels" id="prijzen">
-        ${pricing.length ? `
+        ${pricing.length || stylingRows.length ? `
         <div class="panel">
           <h2>Prijzen</h2>
           ${get('pricingIntro') ? `<p>${MM.esc(get('pricingIntro'))}</p>` : ''}
           <table class="price-table">
             ${pricing.map(p => `<tr><td>${MM.esc(p.label)}</td><td>${MM.euro(p.price)}</td></tr>`).join('')}
+            ${stylingRows.map(([label, price]) => `<tr><td>${MM.esc(label)}</td><td>${MM.euro(price)}</td></tr>`).join('')}
           </table>
           ${get('pricingNote') ? `<p class="note">${MM.esc(get('pricingNote'))}</p>` : ''}
         </div>` : ''}
@@ -147,6 +170,11 @@
           <h2>${MM.esc(s.title)}</h2>
           <p>${MM.esc(s.body)}</p>
         </div>`).join('')}
+        <div class="panel">
+          <h2>Meer foto's?</h2>
+          <p>Check zeker onze Instagram pagina voor meer foto's.</p>
+          <p><a class="btn-outline" href="https://www.instagram.com/maison.moments.keerbergen/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg>Bekijk ons op Instagram</a></p>
+        </div>
         <div class="panel full" id="beschikbaarheid">
           <h2>Beschikbaarheid</h2>
           <p>Kies een weekend om een aanvraag te doen. Je aanvraag is nog geen reservatie: we bevestigen eerst de beschikbaarheid.</p>
@@ -166,7 +194,7 @@
       });
     }
 
-    Booking.mount(document.getElementById('booking'), theme, concept);
+    Booking.mount(document.getElementById('booking'), theme.id ? theme : null, concept);
   })();
 </script>
 

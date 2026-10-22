@@ -9,8 +9,9 @@ const Catalog = (() => {
   const MAX_IMAGE_SIDE = 1600;   // foto's worden vóór upload verkleind
   const DETAIL_FIELDS = ["price_from", "price_unit", "pricing_intro", "pricing", "pricing_note", "included", "info_sections"];
   const BASE_COLUMNS = ["id", "slug", "name", "emoji", "tagline", "description", "cover_url", "color_from", "color_to", "published", "sort_order", ...DETAIL_FIELDS];
-  const CONCEPT_COLUMNS = [...BASE_COLUMNS, "cover_focus_x", "cover_focus_y"];
-  const THEME_COLUMNS = [...BASE_COLUMNS, "concept_id"];
+  const STYLING_COLUMNS = ["styling_threshold", "styling_price_low", "styling_price_high", "styling_label"];
+  const CONCEPT_COLUMNS = [...BASE_COLUMNS, "cover_focus_x", "cover_focus_y", "has_themes", "capacity", "capacity_unit", "booking_min", "booking_max", "guarantee_amount", ...STYLING_COLUMNS];
+  const THEME_COLUMNS = [...BASE_COLUMNS, "concept_id", "guarantee_amount", ...STYLING_COLUMNS];
 
   let concepts = [], themes = [], media = [];
   let root;
@@ -161,18 +162,19 @@ const Catalog = (() => {
     return { blob: jpeg, ext: "jpg", type: "image/jpeg" };
   }
 
-  async function uploadImages(theme, files, statusNode, redraw) {
+  // owner = een thema of een concept; key = "theme_id" of "concept_id" (zie theme_media in schema-v8)
+  async function uploadImages(owner, key, files, statusNode, redraw) {
     const list = [...files].filter(f => f.type.startsWith("image/"));
     for (let i = 0; i < list.length; i++) {
       setStatus(statusNode, `Foto ${i + 1} van ${list.length} uploaden…`);
       try {
         const { blob, ext, type } = await shrinkImage(list[i]);
-        const path = `${theme.id}/${crypto.randomUUID()}.${ext}`;
+        const path = `${owner.id}/${crypto.randomUUID()}.${ext}`;
         const up = await supabaseClient.storage.from(BUCKET).upload(path, blob, { contentType: type });
         if (up.error) throw up.error;
         const url = supabaseClient.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-        const row = { id: crypto.randomUUID(), theme_id: theme.id, type: "image", url, storage_path: path,
-          caption: "", sort_order: themeMedia(theme).length };
+        const row = { id: crypto.randomUUID(), [key]: owner.id, type: "image", url, storage_path: path,
+          caption: "", sort_order: themeMedia(owner, key).length };
         const ins = await supabaseClient.from("theme_media").insert(row);
         if (ins.error) throw ins.error;
         media.push(row);
@@ -262,14 +264,14 @@ const Catalog = (() => {
         el("div", {}, el("small", { text: "Galerij" }), gallery)));
   }
 
-  const themeMedia = theme => media.filter(m => m.theme_id === theme.id).sort((a, b) => a.sort_order - b.sort_order);
+  const themeMedia = (owner, key = "theme_id") => media.filter(m => m[key] === owner.id).sort((a, b) => a.sort_order - b.sort_order);
 
   async function saveMediaOrder(items) {
     items.forEach((m, i) => { m.sort_order = i; });
     await Promise.all(items.map(m => supabaseClient.from("theme_media").update({ sort_order: m.sort_order }).eq("id", m.id)));
   }
 
-  function mediaManager(theme) {
+  function mediaManager(owner, key = "theme_id") {
     const box = el("div", { class: "media-box full" });
     const statusNode = status();
     const grid = el("div", { class: "media-grid" });
@@ -278,11 +280,11 @@ const Catalog = (() => {
 
     const draw = () => {
       focusBox.replaceChildren();
-      if (!theme._saved) {
-        grid.replaceChildren(el("div", { class: "empty", text: "Sla het thema eerst op, daarna kan je foto's en video's toevoegen." }));
+      if (!owner._saved) {
+        grid.replaceChildren(el("div", { class: "empty", text: "Sla eerst op, daarna kan je foto's en video's toevoegen." }));
         return;
       }
-      const items = themeMedia(theme);
+      const items = themeMedia(owner, key);
       const focused = items.find(m => m.id === focusFor && m.type === "image");
       if (focused) {
         focusBox.append(focusPicker(focused.url, focused, "focus_x", "focus_y", async () => {
@@ -327,7 +329,7 @@ const Catalog = (() => {
                 const { error } = await supabaseClient.from("theme_media").delete().eq("id", m.id);
                 if (error) return setStatus(statusNode, "Verwijderen mislukt", true);
                 media = media.filter(x => x.id !== m.id);
-                await saveMediaOrder(themeMedia(theme));
+                await saveMediaOrder(themeMedia(owner, key));
                 draw();
               } }))
         );
@@ -335,15 +337,15 @@ const Catalog = (() => {
     };
 
     const fileInput = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", multiple: true, hidden: true });
-    fileInput.addEventListener("change", () => { uploadImages(theme, fileInput.files, statusNode, draw); fileInput.value = ""; });
+    fileInput.addEventListener("change", () => { uploadImages(owner, key, fileInput.files, statusNode, draw); fileInput.value = ""; });
 
     const ytInput = el("input", { type: "text", placeholder: "Plak een YouTube-link" });
     const addYoutube = async () => {
-      if (!theme._saved) return setStatus(statusNode, "Sla het thema eerst op", true);
+      if (!owner._saved) return setStatus(statusNode, "Sla eerst op", true);
       const id = youtubeId(ytInput.value);
       if (!id) return setStatus(statusNode, "Dit lijkt geen geldige YouTube-link", true);
-      const row = { id: crypto.randomUUID(), theme_id: theme.id, type: "youtube", url: `https://www.youtube.com/watch?v=${id}`,
-        caption: "", sort_order: themeMedia(theme).length };
+      const row = { id: crypto.randomUUID(), [key]: owner.id, type: "youtube", url: `https://www.youtube.com/watch?v=${id}`,
+        caption: "", sort_order: themeMedia(owner, key).length };
       const { error } = await supabaseClient.from("theme_media").insert(row);
       if (error) return setStatus(statusNode, "Video toevoegen mislukt", true);
       media.push(row);
@@ -358,7 +360,7 @@ const Catalog = (() => {
       focusBox,
       el("div", { class: "media-actions" },
         el("button", { class: "btn btn-outline btn-sm", type: "button", text: "+ Foto's uploaden",
-          onclick: () => theme._saved ? fileInput.click() : setStatus(statusNode, "Sla het thema eerst op", true) }),
+          onclick: () => owner._saved ? fileInput.click() : setStatus(statusNode, "Sla eerst op", true) }),
         fileInput,
         ytInput,
         el("button", { class: "btn btn-outline btn-sm", type: "button", text: "+ Video", onclick: addYoutube }),
@@ -394,6 +396,11 @@ const Catalog = (() => {
         field("Beschrijving", theme, "description", { multiline: true, full: true }),
         el("div", { class: "full color-row" }, colorField("Kleur 1", theme, "color_from"), colorField("Kleur 2", theme, "color_to")),
         el("div", { class: "full" }, checkbox("Zichtbaar op de website", theme, "published")),
+        field(`Waarborg (€, leeg = zoals ${concept.name})`, theme, "guarantee_amount", { type: "number" }),
+        field(`Styling: drempel (leeg = zoals ${concept.name})`, theme, "styling_threshold", { type: "number" }),
+        field("Styling: prijs tot en met de drempel (€, leeg = zoals het concept)", theme, "styling_price_low", { type: "number" }),
+        field("Styling: prijs vanaf de drempel + 1 (€, leeg = zoals het concept)", theme, "styling_price_high", { type: "number" }),
+        field("Styling: naam in het formulier (leeg = zoals het concept)", theme, "styling_label"),
         mediaBox,
         el("div", { class: "full" }, checkbox(`Eigen prijzen en info (anders die van ${concept.name})`, ownToggle, "own", on => {
           if (on) DETAIL_FIELDS.forEach(f => { theme[f] = structuredClone(concept[f] ?? null); });
@@ -443,8 +450,20 @@ const Catalog = (() => {
         field("Korte zin op de tegel", concept, "tagline", { full: true }),
         field("Beschrijving", concept, "description", { multiline: true, full: true }),
         el("div", { class: "full color-row" }, colorField("Kleur 1", concept, "color_from"), colorField("Kleur 2", concept, "color_to")),
+        el("div", { class: "full" }, checkbox("Heeft thema's (anders wordt het concept direct geboekt)", concept, "has_themes")),
+        field("Voorraad (aantal)", concept, "capacity", { type: "number" }),
+        field("Eenheid (bv. tipi's, personen, setups)", concept, "capacity_unit"),
+        field("Minimum per boeking", concept, "booking_min", { type: "number" }),
+        field("Maximum per boeking", concept, "booking_max", { type: "number" }),
+        field("Waarborg (€)", concept, "guarantee_amount", { type: "number" }),
+        field("Styling: drempel (tot en met aantal eenheden, leeg = geen styling-keuze)", concept, "styling_threshold", { type: "number" }),
+        field("Styling: prijs tot en met de drempel (€)", concept, "styling_price_low", { type: "number" }),
+        field("Styling: prijs vanaf de drempel + 1 (€)", concept, "styling_price_high", { type: "number" }),
+        field("Styling: naam in het formulier", concept, "styling_label"),
         el("div", { class: "full" }, checkbox("Zichtbaar op de website", concept, "published"))
       ),
+      el("h3", { class: "block-title", text: "Foto's en video's van dit concept" }),
+      el("div", { class: "theme-fields" }, mediaManager(concept, "concept_id")),
       el("h3", { class: "block-title", text: "Prijzen en info (voor alle thema's hieronder)" }),
       el("div", { class: "theme-fields" }, ...detailsFields(concept)),
       el("div", { class: "row-actions" },
@@ -453,6 +472,8 @@ const Catalog = (() => {
           if (list.length) return setStatus(statusNode, "Verwijder eerst de thema's van dit concept", true);
           if (!confirm(`"${concept.name}" verwijderen?`)) return;
           if (concept._saved) {
+            const paths = themeMedia(concept, "concept_id").map(m => m.storage_path).filter(Boolean);
+            if (paths.length) await supabaseClient.storage.from(BUCKET).remove(paths);
             const { error } = await supabaseClient.from("concepts").delete().eq("id", concept.id);
             if (error) return setStatus(statusNode, "Verwijderen mislukt", true);
           }
@@ -481,7 +502,8 @@ const Catalog = (() => {
         concepts.push({ id: crypto.randomUUID(), name: "", slug: "", emoji: "🎈", tagline: "", description: "",
           color_from: "#E9DCC9", color_to: "#D9BD97", price_unit: "", pricing_intro: "", pricing: [], pricing_note: "",
           included: [], info_sections: [], published: false, sort_order: concepts.length + 1,
-          cover_focus_x: 50, cover_focus_y: 50 });
+          cover_focus_x: 50, cover_focus_y: 50,
+          has_themes: true, capacity: 0, capacity_unit: "tipi's", booking_min: 1, booking_max: 1 });
         render();
       } })
     );

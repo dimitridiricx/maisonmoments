@@ -70,6 +70,7 @@ const DEFAULT_CATALOG = {
       description: "Wij leveren op vrijdag, bouwen en stylen alles, en halen het op zondag weer op. Jullie hoeven alleen nog te genieten.",
       cover: "zeemeermin.jpg",
       colorFrom: "#F6D9CE", colorTo: "#F2C4B3",
+      hasThemes: true, capacity: 6, capacityUnit: "tipi's", bookingMin: 2, bookingMax: 6,
       ...SLEEPOVER_INFO
     }
   ],
@@ -144,11 +145,28 @@ const MM = {
       name: row.name, emoji: row.emoji, tagline: row.tagline, description: row.description,
       cover: row.cover_url || null, colorFrom: row.color_from, colorTo: row.color_to,
       priceFrom: row.price_from, priceUnit: row.price_unit, pricingIntro: row.pricing_intro,
-      pricing: row.pricing, pricingNote: row.pricing_note, included: row.included, infoSections: row.info_sections
+      pricing: row.pricing, pricingNote: row.pricing_note, included: row.included, infoSections: row.info_sections,
+      stylingThreshold: row.styling_threshold, stylingPriceLow: row.styling_price_low,
+      stylingPriceHigh: row.styling_price_high, stylingLabel: row.styling_label
     });
     const slugById = Object.fromEntries(concepts.map(c => [c.id, c.slug]));
     return {
-      concepts: concepts.map(c => ({ slug: c.slug, ...shared(c), focusX: c.cover_focus_x, focusY: c.cover_focus_y })),
+      concepts: concepts.map(c => {
+        // "vanaf"-prijs = de laagste boekbare prijs uit de prijslijst (regels die met een aantal beginnen).
+        // Styling-regels tellen niet mee. Enkel als die er niet is, het handmatig ingevulde bedrag.
+        const bookable = (c.pricing || []).filter(p => Number.isFinite(parseInt(p.label, 10)) && Number.isFinite(Number(p.price)));
+        const priceFrom = bookable.length ? Math.min(...bookable.map(p => Number(p.price))) : c.price_from;
+        const own = media.filter(x => x.concept_id === c.id)
+          .map(x => ({ type: x.type, url: x.url, caption: x.caption, focusX: x.focus_x, focusY: x.focus_y }));
+        const firstImage = own.find(x => x.type === "image");
+        return {
+          slug: c.slug, ...shared(c), focusX: c.cover_focus_x, focusY: c.cover_focus_y,
+          cover: c.cover_url || (firstImage && firstImage.url) || null,
+          priceFrom,
+          id: c.id, hasThemes: c.has_themes, capacity: c.capacity, capacityUnit: c.capacity_unit,
+          bookingMin: c.booking_min, bookingMax: c.booking_max, media: own
+        };
+      }),
       themes: themes
         .filter(t => slugById[t.concept_id])
         .map(t => {
