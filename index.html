@@ -3,196 +3,250 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Maison Moments — Binnenkort online</title>
-<meta name="description" content="Maison Moments — feestverhuur, sleepovers, movie nights, luxe diners, spa- en glampingfeestjes. Binnenkort online.">
+<title>Maison Moments — Tipi-slaapfeestjes en feestconcepten aan huis</title>
+<meta name="description" content="Maison Moments levert, bouwt en stylet complete feestconcepten bij jou thuis, zoals tipi-slaapfeestjes. Kies je thema en vraag je weekend aan.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Caveat:wght@600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,500&family=Caveat:wght@500;600;700&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/mm.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="supabase-config.js"></script>
+<script src="assets/mm-data.js"></script>
 <style>
-  :root{
-    --cream:#FBF6EC; --cream-deep:#F2E8D8; --espresso:#3A2E27;
-    --tan:#B98D5D; --tan-soft:#D9BD97; --sage:#8A9A6E; --sage-soft:#C4CFAE;
-    --coral:#E76F51; --blush:#F2C4B3; --mustard:#E3A857; --line:rgba(58,46,39,0.14);
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;background:var(--cream-deep);color:var(--espresso);
-    font-family:'Jost',sans-serif;-webkit-font-smoothing:antialiased;
-  }
-  h1,h2,h3{font-family:'Fraunces',serif;margin:0;font-weight:500;}
-  .script{font-family:'Caveat',cursive;font-weight:700;}
-  .stage{
-    min-height:100vh;display:flex;align-items:center;justify-content:center;
-    padding:26px;
-  }
-  .board{
-    width:100%;max-width:1180px;
-    display:grid;grid-template-columns:1fr minmax(300px,380px) 1fr;gap:14px;
-    align-items:stretch;
-  }
-  .col{display:grid;gap:14px;}
-  .col.left{grid-template-rows:1.15fr 1fr;}
-  .col.right{grid-template-rows:0.85fr 1fr 0.85fr;}
-  .tile{
-    position:relative;border-radius:20px;overflow:hidden;min-height:170px;
-    display:flex;align-items:flex-end;padding:18px;color:#fff;
-  }
-  .tile::before{
-    content:"";position:absolute;inset:0;
-    background:radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,0.18), transparent 55%);
-  }
-  .tile span{position:relative;font-family:'Fraunces',serif;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;
-    background:rgba(58,46,39,0.55);padding:6px 13px;border-radius:999px;backdrop-filter:blur(2px);}
-  .t-sleep{background:linear-gradient(150deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15)), url('https://htesncvgvnjgcbgnoonh.supabase.co/storage/v1/object/public/images/zeemeermin.jpg') center/cover no-repeat;}
-  .t-movie{background:linear-gradient(150deg,#4A3F3A,#2A231F);}
-  .t-dinner{background:linear-gradient(150deg,#C9A98C,#A6805F);}
-  .t-spa{background:linear-gradient(150deg,#E9D3C3,#D3B49B);}
-  .t-glamp{background:linear-gradient(150deg,#2C3A2E,#182219);}
+  section{position:relative;}
+  .section-head{max-width:620px;margin-bottom:40px;}
+  .section-head h2{font-size:36px;}
+  .section-head p{color:var(--muted);margin-top:14px;}
 
-  .center{
-    background:var(--cream);border:1px solid var(--line);
-    border-radius:200px 200px 22px 22px;
-    padding:52px 34px 40px;text-align:center;
-    display:flex;flex-direction:column;align-items:center;
-    box-shadow:0 30px 60px -30px rgba(58,46,39,0.35);
+  /* hero */
+  .hero{padding:72px 0 64px;overflow:hidden;}
+  .hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:50px;align-items:center;}
+  .hero h1{font-size:52px;line-height:1.08;letter-spacing:-0.01em;}
+  .hero h1 em{font-style:normal;font-family:'Caveat',cursive;color:var(--coral);font-weight:700;font-size:1.15em;}
+  .hero .lead{margin-top:22px;font-size:18px;max-width:470px;color:var(--muted);}
+  .hero-ctas{display:flex;gap:14px;margin-top:32px;flex-wrap:wrap;}
+  .hero-visual{position:relative;height:440px;}
+  .hero-arch{
+    position:absolute;inset:0;border-radius:240px 240px 24px 24px;overflow:hidden;
+    background:linear-gradient(160deg,var(--blush) 0%,var(--tan-soft) 55%,var(--sage-soft) 100%);
+    display:flex;align-items:flex-end;justify-content:center;
+    box-shadow:0 30px 60px -25px rgba(58,46,39,0.35);
   }
-  .heart{color:var(--tan);font-size:18px;margin-bottom:14px;}
-  .center h1{font-size:44px;line-height:1.06;letter-spacing:0.01em;}
-  .tagline{
-    margin-top:18px;font-size:13.5px;letter-spacing:0.08em;text-transform:uppercase;color:#6b5c4f;
+  /* multiply: de witte achtergrond van het logo valt weg tegen het kleurverloop */
+  .hero-arch{align-items:center;}
+  .hero-arch img{width:72%;mix-blend-mode:multiply;}
+
+  /* concepten */
+  .concepts{padding:84px 0 20px;background:var(--cream-deep);}
+  .concepts .tiles{padding-bottom:84px;}
+
+  /* hoe het werkt */
+  .process{padding:92px 0;}
+  .process-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;margin-top:50px;position:relative;}
+  .process-grid::before{
+    content:"";position:absolute;top:34px;left:14%;right:14%;height:1.5px;z-index:0;
+    background:repeating-linear-gradient(90deg,var(--tan) 0 10px,transparent 10px 20px);
   }
-  .divider{display:flex;align-items:center;gap:10px;margin:20px 0 26px;color:var(--tan-soft);}
-  .divider::before,.divider::after{content:"";width:34px;height:1px;background:var(--line);}
-  .cat-list{width:100%;text-align:left;display:grid;gap:16px;}
-  .cat{display:grid;grid-template-columns:34px 1fr;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-  .cat:last-child{border-bottom:none;padding-bottom:0;}
-  .cat .icon{font-size:20px;line-height:1;margin-top:2px;}
-  .cat h3{font-size:14.5px;letter-spacing:0.03em;text-transform:uppercase;}
-  .cat p{margin:4px 0 0;font-size:13.5px;color:#6b5c4f;line-height:1.45;}
-
-  .brand-wordmark{margin-top:30px;}
-  .brand-wordmark .maison{font-family:'Fraunces',serif;font-size:26px;letter-spacing:0.16em;}
-  .brand-wordmark .moments{font-family:'Caveat',cursive;font-weight:700;font-size:34px;color:var(--tan);margin-top:2px;}
-
-  .stay-tuned{margin-top:22px;}
-  .stay-tuned .st1{font-size:13px;letter-spacing:0.14em;text-transform:uppercase;color:var(--coral);font-weight:500;}
-  .stay-tuned .st2{margin-top:6px;font-size:13px;color:#8a7a6c;font-style:italic;}
-
-  .notify{margin-top:26px;width:100%;}
-  .notify form{display:flex;gap:8px;}
-  .notify input[type=email]{
-    flex:1;padding:11px 14px;border-radius:999px;border:1px solid var(--line);
-    background:#fff;font-family:'Jost',sans-serif;font-size:13.5px;color:var(--espresso);
+  .step{position:relative;z-index:1;text-align:center;padding:0 10px;}
+  .step-num{
+    width:68px;height:68px;border-radius:50%;background:var(--cream);border:1.5px solid var(--tan);
+    display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:24px;margin:0 auto 22px;
   }
-  .notify button{
-    padding:11px 20px;border-radius:999px;border:none;background:var(--coral);color:#fff;
-    font-family:'Jost',sans-serif;font-weight:500;font-size:13.5px;cursor:pointer;white-space:nowrap;
-  }
-  .notify .msg{margin-top:10px;font-size:12.5px;}
-  .notify .msg.ok{color:var(--sage);}
-  .notify .msg.err{color:#c0533c;}
+  .step h3{font-size:19px;margin-bottom:10px;}
+  .step p{font-size:15px;color:var(--muted-2);max-width:280px;margin:0 auto;}
 
-  @media(max-width:920px){
-    .board{grid-template-columns:1fr;}
-    .col{display:none;}
-    .center{order:-1;border-radius:36px;}
+  /* over ons */
+  .about{padding:20px 0 92px;}
+  .about-box{background:var(--cream-deep);border-radius:32px;padding:52px;display:grid;grid-template-columns:1fr 1.3fr;gap:48px;align-items:center;}
+  .about-box img{width:100%;max-width:340px;margin:0 auto;mix-blend-mode:multiply;}
+  .about h2{font-size:34px;margin-bottom:16px;}
+  .about p{color:var(--muted);margin:0;}
+  .about-list{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:12px;}
+  .about-list li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;}
+  .tick{width:22px;height:22px;border-radius:50%;background:var(--sage-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;margin-top:2px;}
+
+  /* contact */
+  .cta-band{background:var(--espresso);color:var(--cream);padding:80px 0;text-align:center;}
+  .cta-band h2{color:var(--cream);font-size:38px;max-width:640px;margin:0 auto;}
+  .cta-band p{color:#d9cdbf;margin:16px auto 0;max-width:560px;}
+  .cta-band .hero-ctas{justify-content:center;}
+  .cta-band .btn-outline{border-color:#d9cdbf;color:var(--cream);}
+  .cta-band .btn-outline:hover{background:var(--cream);color:var(--espresso);}
+  footer{margin-top:0;}
+
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease, transform .7s ease;}
+  .reveal.in{opacity:1;transform:none;}
+  @media (prefers-reduced-motion: reduce){.reveal{opacity:1;transform:none;transition:none;}}
+
+  @media(max-width:960px){
+    .hero-grid,.about-box{grid-template-columns:1fr;}
+    .hero-visual{height:320px;order:-1;}
+    .process-grid{grid-template-columns:1fr;gap:40px;}
+    .process-grid::before{display:none;}
+  }
+  @media(max-width:680px){
+    .hero{padding:32px 0 48px;}
+    .hero h1{font-size:36px;}
+    .hero-visual{height:260px;}
+    .section-head h2,.about h2,.cta-band h2{font-size:29px;}
+    .about-box{padding:30px 22px;gap:26px;}
+    .concepts{padding-top:60px;}
+    .process{padding:64px 0;}
   }
 </style>
 </head>
 <body>
 
-<div class="stage">
-  <div class="board">
-    <div class="col left">
-      <div class="tile t-sleep"><span>Slaapfeestjes</span></div>
-      <div class="tile t-spa"><span>Spa verjaardagen</span></div>
-    </div>
-
-    <div class="center">
-      <div class="heart">♡</div>
-      <h1>Coming<br>Soon</h1>
-      <div class="tagline">Waar kleine momenten </br>grote herinneringen worden.</div>
-
-      <div class="divider">♡</div>
-
-      <div class="cat-list">
-        <div class="cat">
-          <div class="icon">⛺</div>
-          <div><h3>Slaapfeestjes</h3><p>In de mooiste thema's voor een droomnacht.</p></div>
-        </div>
-        <div class="cat">
-          <div class="icon">🎬</div>
-          <div><h3>Movie Nights</h3><p>Cozy films &amp; good vibes voor de ultieme filmervaring.</p></div>
-        </div>
-        <div class="cat">
-          <div class="icon">🍽️</div>
-          <div><h3>Luxe Dinner Settings</h3><p>Stijlvolle diners met oog voor detail en een tijdloze, elegante sfeer.</p></div>
-        </div>
-        <div class="cat">
-          <div class="icon">🌸</div>
-          <div><h3>Spa Verjaardagen</h3><p>Verwennen, relaxen en stralen tijdens een spa party.</p></div>
-        </div>
-        <div class="cat">
-          <div class="icon">🌙</div>
-          <div><h3>Glamping Experiences</h3><p>De magie van kamperen, maar dan in luxe en comfort.</p></div>
-        </div>
-      </div>
-
-      <div class="brand-wordmark">
-        <div class="maison">MAISON MOMENTS</div>
-      </div>
-
-      <div class="stay-tuned">
-        <div class="st1">Stay tuned</div>
-        <div class="st2">Iets heel moois komt eraan…</div>
-      </div>
-
-      <div class="notify">
-        <form id="notifyForm">
-          <input type="email" id="notifyEmail" placeholder="Jouw e-mailadres" required>
-          <button type="submit">Meld mij aan</button>
-        </form>
-        <div class="msg" id="notifyMsg"></div>
-      </div>
-    </div>
-
-    <div class="col right">
-      <div class="tile t-movie"><span>Movie Nights</span></div>
-      <div class="tile t-dinner"><span>Luxe Dinner Settings</span></div>
-      <div class="tile t-glamp"><span>Glamping Experiences</span></div>
+<header>
+  <div class="nav">
+    <a href="site-volledig.html" class="brand"><img src="assets/logo.jpg" alt="Maison Moments logo"></a>
+    <nav class="links" id="navLinks">
+      <a href="themas.html">Thema's</a>
+      <a href="#werkwijze">Hoe het werkt</a>
+      <a href="#over-ons">Over ons</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <a href="themas.html" class="cta-btn">Reserveren</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
     </div>
   </div>
-</div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow">Feestconcepten aan huis</div>
+        <h1>Van gewoon feestje<br>tot <em>Maison&nbsp;Moment</em></h1>
+        <p class="lead">Wij leveren, bouwen en stylen complete feestconcepten bij jou thuis. Jij kiest het thema, wij brengen het tot leven, en ruimen nadien alles weer op.</p>
+        <div class="hero-ctas">
+          <a href="themas.html" class="cta-btn">Bekijk onze thema's</a>
+          <a href="#werkwijze" class="btn-outline">Hoe het werkt</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-arch"><img src="assets/logo.jpg" alt="Maison Moments"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCEPTEN -->
+  <section class="concepts" id="concepten">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="eyebrow">Onze concepten</div>
+        <h2>Kies je feestconcept</h2>
+        <p>Elk concept heeft zijn eigen thema's, met foto's, prijzen en een beschikbaarheidskalender.</p>
+      </div>
+      <div class="tiles" id="conceptTiles"></div>
+    </div>
+  </section>
+
+  <!-- HOE HET WERKT -->
+  <section class="process" id="werkwijze">
+    <div class="wrap">
+      <div class="section-head reveal" style="margin:0 auto;text-align:center;">
+        <div class="eyebrow">Hoe het werkt</div>
+        <h2>Van aanvraag tot opgeruimd, in drie stappen</h2>
+      </div>
+      <div class="process-grid">
+        <div class="step reveal">
+          <div class="step-num">1</div>
+          <h3>Kies je concept en thema</h3>
+          <p>Bekijk onze concepten en thema's, met foto's, prijzen en wat er allemaal inbegrepen is.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">2</div>
+          <h3>Vraag je weekend aan</h3>
+          <p>Kies een vrij weekend in de kalender. Wij bevestigen je aanvraag; met het voorschot ligt alles vast.</p>
+        </div>
+        <div class="step reveal">
+          <div class="step-num">3</div>
+          <h3>Wij leveren, stylen en halen op</h3>
+          <p>We bouwen alles op en stylen het tot in de details. Nadien breken we af en nemen we alles weer mee.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OVER ONS -->
+  <section class="about" id="over-ons">
+    <div class="wrap">
+      <div class="about-box reveal">
+        <img src="assets/logo.jpg" alt="Maison Moments">
+        <div>
+          <div class="eyebrow">Over Maison Moments</div>
+          <h2>Feestjes stylen is onze liefdestaal</h2>
+          <p>Maison Moments verhuurt complete, kant-en-klare feestconcepten. Geen gedoe met losse spulletjes bij elkaar zoeken: wij leveren, stylen en halen alles weer op.</p>
+          <ul class="about-list">
+            <li><span class="tick">✓</span>Volledig gestyled, tot in de details</li>
+            <li><span class="tick">✓</span>Levering, opbouw en ophaling inbegrepen</li>
+            <li><span class="tick">✓</span>Beddengoed na elke verhuur zorgvuldig gewassen</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="cta-band" id="contact">
+    <div class="wrap">
+      <h2>Klaar voor jullie eigen Maison Moment?</h2>
+      <p>Kies een thema en vraag meteen je weekend aan. Een vraag, of liever een feestje tijdens de week of in een verlengd weekend? Mail ons gerust.</p>
+      <div class="hero-ctas">
+        <a href="themas.html" class="cta-btn">Bekijk onze thema's</a>
+        <a href="mailto:info@maisonmoments.be" class="btn-outline">info@maisonmoments.be</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Maison Moments</span>
+    <nav>
+      <a href="themas.html">Thema's</a>
+      <a href="#werkwijze">Hoe het werkt</a>
+      <a href="mailto:info@maisonmoments.be">Contact</a>
+      <a class="ig-link" href="https://www.instagram.com/maison.moments.keerbergen/" target="_blank" rel="noopener" aria-label="Maison Moments op Instagram"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor"/></svg>Volg ons op Instagram</a>
+    </nav>
+  </div>
+</footer>
 
 <script>
-  const form = document.getElementById('notifyForm');
-  const msg = document.getElementById('notifyMsg');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    msg.className = 'msg';
-    msg.textContent = '';
-    const email = document.getElementById('notifyEmail').value;
+  MM.initMenu();
 
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
-      msg.className = 'msg err';
-      msg.textContent = 'Aanmelden lukt nu nog niet — probeer het later opnieuw.';
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  (async () => {
+    const { concepts, themes } = await MM.loadCatalog();
+
+    const grid = document.getElementById('conceptTiles');
+    if (!concepts.length) {
+      grid.innerHTML = '<div class="empty">Binnenkort vind je hier onze feestconcepten.</div>';
       return;
     }
-    const btn = form.querySelector('button');
-    btn.disabled = true;
-    const { error } = await supabaseClient.from('waitlist').insert({ email });
-    btn.disabled = false;
-
-    if (error) {
-      msg.className = 'msg err';
-      msg.textContent = error.code === '23505' ? 'Dit e-mailadres staat al op de lijst!' : 'Er ging iets mis, probeer het opnieuw.';
-    } else {
-      msg.className = 'msg ok';
-      msg.textContent = 'Bedankt! We laten je weten zodra we live gaan.';
-      form.reset();
-    }
-  });
+    grid.innerHTML = concepts.map(c => {
+      const count = themes.filter(t => t.concept === c.slug).length;
+      return `
+        <a class="tile reveal" href="concept.html?c=${encodeURIComponent(c.slug)}">
+          <div class="tile-top" style="${MM.tileBackground(c)}">${c.cover ? '' : MM.esc(c.emoji)}</div>
+          <div class="tile-body">
+            <h3>${MM.esc(c.name)}</h3>
+            <p>${MM.esc(c.tagline)}</p>
+            ${c.priceFrom ? `<div class="tile-price">vanaf <b>${MM.euro(c.priceFrom)}</b> ${MM.esc(c.priceUnit || '')}</div>` : ''}
+            <span class="tile-more">${count} thema${count === 1 ? '' : "'s"} bekijken</span>
+          </div>
+        </a>`;
+    }).join('');
+    grid.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  })();
 </script>
 
 </body>
